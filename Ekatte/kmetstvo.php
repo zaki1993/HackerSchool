@@ -21,7 +21,22 @@ for($i=0;$i<count($Kmetstvo->sheets);$i++) // Loop to get all sheets in a file.
 			$document = $Kmetstvo->sheets[$i][cells][$j][4];
 			$category = $Kmetstvo->sheets[$i][cells][$j][5];
 			mysql_query("SET NAMES UTF8");
-			$query1 = mysql_query("INSERT INTO Kmetstvo(Kmetstvo,name,Center,document,Category) values('".$kmet."','".$name."','".$center."','".$document."','".$category."')");
+
+
+	$obshtina = mysql_query("SELECT * FROM Selishte");
+		while($row2 = mysql_fetch_array($obshtina,MYSQL_ASSOC)){
+			$km = $row2['kmetstvo'];
+			$obsht = $row2['obshtina'];
+			if($kmet == $km){
+				$query1 = mysql_query("INSERT INTO Kmetstvo(kmetstvo,name,center,document,category,obshtina) values('".$kmet."','".$name."','".$center."','".$document."','".$category."','".$obsht."')");
+				
+				break;
+			}
+		}
+
+
+
+			
 			echo $center.' ';
 		}
 		

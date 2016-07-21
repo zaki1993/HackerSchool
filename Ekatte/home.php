@@ -24,5 +24,4 @@ require_once 'excel_reader2.php';
 require_once 'db.php';
 
 
-$conn.close();
 ?>
