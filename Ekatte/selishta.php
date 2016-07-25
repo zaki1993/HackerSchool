@@ -41,10 +41,12 @@ for($i=0;$i<count($selishte->sheets);$i++) // Loop to get all sheets in a file.
 			}
 		}
 if($check == "no"){
-mysql_query("INSERT INTO Kmetstvo(kmetstvo) values('$kmetstvo')");
-}
-mysql_query("INSERT INTO Selishte(ekatte, t_v_m, name, oblast, obshtina, kmetstvo, kind, category, altitude, document, tsb, abc) VALUES('".$ekatte."','".$tvm."','".$name."','".$oblast."','".$obshstina."','".$kmetstvo."','".$kind."','".$category."','".$altitude."','".$document."','".$tsb."','".$abc."')");
+mysql_query("INSERT INTO Selishte(ekatte, t_v_m, name, oblast, obshtina, kind, category, altitude, document, tsb, abc) VALUES('".$ekatte."','".$tvm."','".$name."','".$oblast."','".$obshstina."','".$kind."','".$category."','".$altitude."','".$document."','".$tsb."','".$abc."')");
 
+}
+if($check == "yes"){
+mysql_query("INSERT INTO Selishte(ekatte, t_v_m, name, oblast, obshtina, kmetstvo, kind, category, altitude, document, tsb, abc) VALUES('".$ekatte."','".$tvm."','".$name."','".$oblast."','".$obshstina."','".$kmetstvo."','".$kind."','".$category."','".$altitude."','".$document."','".$tsb."','".$abc."')");
+}
 		}
 	
 	}

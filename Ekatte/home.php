@@ -20,6 +20,7 @@ div{
 display:inline;
 }
 </style>
+
 <form action="" method="POST">
 <div>
 <label for="selishte-in">Selishte: </label>
@@ -46,7 +47,11 @@ display:inline;
 <input name= "Region-in" type="text"></input>
 <button type="submit"> Show </button>
 </div>
+
+
 </form>
+
+
 <?php if($_POST["selishte-in"]){
 $selishte = $_POST["selishte-in"];
 mysql_query("SET NAMES UTF8");
@@ -195,3 +200,4 @@ echo '</tr>';
 echo '</table>';
 }
 }?>
+
