@@ -1,125 +1,75 @@
-#include<iostream>
-#include<cmath>
+#include <iostream>
+#include <vector>
+#include <queue>
 using namespace std;
-class Round {
-private:
-	double x, y, r;
-public:
-	Round(int _x = 1, int _y = 1, int _r = 2) {
-		x = _x;
-		y = _y;
-		r = _r;
-	}
-	double getX() const {
-		return x;
-	}
-	double getY() const {
-		return y;
-	}
-	double getR() const {
-		return r;
-	}
-	void setX(double _x) {
-		x = _x;
-	}
-	void setY(double _y) {
-		y = _y;
-	}
-	void setR(double _r) {
-		if (_r >= 0) {
-			r = _r;
-		}
-		else {
-			cout << "Enter non negative value..!" << endl;
-		}
-	}
+
+struct Round
+{ 
+  int x,y;
+  int r;
 };
-void EnterCircle(Round& p) {
-	double temp;
-	cout << "X: ";
-	cin >> temp;
-	
-	p.setX(temp);
-	cout << "Y: ";
-	cin >> temp;
 
-	p.setY(temp);
-	cout << "R: ";
-	cin >> temp;
+bool crossing(Round &A, Round &B)
+{ 
+  return (A.r - B.r)*(A.r - B.r) < (B.x - A.x)*(B.x - A.x) + (B.y - A.y)*(B.y - A.y) && (B.x - A.x)*(B.x - A.x) + (B.y - A.y)*(B.y - A.y)  < (A.r + B.r)*(A.r + B.r);
+}  
+  
 
-	p.setR(temp);
-}
-bool crossed(Round& p, Round& q) {
-	double result = sqrt((p.getX() - q.getX())*(p.getX() - q.getX())) + sqrt((p.getY() - q.getY())*(p.getY() - q.getY()));
-	return (abs(p.getR() - q.getR()) <= result && result <= (p.getR() + q.getR()));
-}
+Round group[100];
+int vertex[100];
 
-bool isTherePath(Round& p, Round& q) {
-	return(crossed(p, q));
-}
-void markVisited(bool matrix[10][10], int row, int col,int &count) {
-	if (matrix[row][col]) {
-		matrix[row][col] = false;
-		count++;
-	}
-}
-bool canYouStepOn(bool matrix[10][10],int row,int col,int n) {
-	return matrix[row][col] == true && row < n && col < n;
-}
-void isTherePathA1An(bool arr[10][10], int n, int startX, int startY, int &path) {
-	
+vector<int> arr[100]; 
+  
 
-			if (canYouStepOn(arr, startX, startY,n)) {
-				markVisited(arr, startX, startY,path);
-			}
-			if (canYouStepOn(arr,startX-1,startY,n)) {
-				return isTherePathA1An(arr, n, startX - 1, startY, path);
-			}
-			if (canYouStepOn(arr,startX + 1,startY,n)) {
-				return isTherePathA1An(arr, n, startX + 1, startY, path);
-			}
-			if (canYouStepOn(arr,startX,startY - 1,n)) {
-				return isTherePathA1An(arr, n, startX, startY - 1, path);
-			}
-			if (canYouStepOn(arr,startX,startY + 1,n)) {
-				return isTherePathA1An(arr, n, startX, startY + 1, path);
-			}
-			return;
-}
-void pushMatrixPath(bool arr[10][10], int n, Round *group) {
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < n; j++) {
-			if (isTherePath(group[i], group[j])) {
-				arr[i][j] = true;
-			}
-			else {
-				arr[i][j] = false;
-			}
-		}
-	}
-}
-int main() {
-	int n;
-	int path = -1;
-	Round group[100];
-	cout << "Enter number of the circles: ";
-	cin >> n;
-	for (int i = 0; i < n; i++) {
-		cout <<"Circle "<< i+1 << ": " << endl;
-		EnterCircle(group[i]);
-	}
-	bool matrix[10][10];
 
-	pushMatrixPath(matrix, n, group);
-	
-	for (int i = 0; i < n; i++) {
-		for (int j = 0; j < n; j++) {
-			cout << matrix[i][j];
-		}
-		cout << endl;
-	}
-	isTherePathA1An(matrix, n, 0, 0, path);
-	cout << path;
-	system("pause");
-	return 0;
-}
+//bfs algorithm
+void BredthFirstSearch(int x,int n) 
+{ 
+  for(int i=1; i<=n; i++)
+    vertex[i] = -1;
+  
+  vertex[x] = 0;
+  queue<int> q;
+  q.push(x);
+  
+  while(!q.empty())
+  { 
+    x = q.front(); 
+    q.pop();
+    
+    for(int i=0; i <arr[x].size(); i++)
+    { 
+      int y = arr[x][i];
+  
+      if(vertex[y]==-1)
+      { 
+        vertex[y] = vertex[x] + 1;
+        q.push(y);
+      }
+    }
+  } 
+}       
+  
+int main()
+{ 
+
+  int n;  
+  cin >> n;
+  for(int i=1; i<=n; i++)
+  {
+        cin >> group[i].x >> group[i].y >> group[i].r;
+  }
+  for(int i=1; i<n; i++)
+    for(int j=i+1; j<=n; j++)
+      if(crossing(group[i], group[j])) 
+      { 
+      	// check if rounds are crossing and pushing them
+        arr[i].push_back(j);
+        arr[j].push_back(i);
+      }
+  
+  BredthFirstSearch(1,n); 
+  cout << vertex[n] << endl;
+       
+  return 0;
+}    
