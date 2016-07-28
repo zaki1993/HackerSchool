@@ -31,19 +31,7 @@ ext get_ext(char *file) {
 	}
 }
 
-int serverBytesRead = 0;
 ssize_t bytes_sent = 0;
-
-std::string readTxtFile(std::ifstream& file){
-std::string temp ="";
-while (!file.eof()) {
-
-   file >> temp;
-   std::cout<<temp;
-
- }
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -117,19 +105,16 @@ int main(int argc, char *argv[])
         }
 }while(bytes_recieved == buffersize);
      std::cout << totalBytesRead << " bytes recieved" << std::endl;
-     serverBytesRead+=totalBytesRead;
 
 		  for(int i = 5;i<bytes_recieved,incomming_data_buffer[i]!=' ';i++){;
 			addrcontainer+=incomming_data_buffer[i]; //get the exact address
         	}
 	
-	if(addrcontainer!="/favicon.ico"){
+	if(addrcontainer!="favicon.ico"){
+	std::cout<<"Container: "<<addrcontainer<<std::endl;
 		char *result = new char[sizeof(addrcontainer)+1];
-		for(int i = 0;i<sizeof(addrcontainer);i++){
-			result[i] = addrcontainer[i]; //convert the address to char*
-		}	
+			strcpy(result,addrcontainer.c_str());
 	if(get_ext(result)==5){
-		if(!strcmp(result,"test.txt")){
 			std::ifstream file(result);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -144,13 +129,15 @@ int main(int argc, char *argv[])
 				while (!file.eof()) {
 
 				   file >> temp;
-				   std::cout<<temp;
-
+				   bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
+			           bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+				   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
+				   bytes_sent = write(new_sd,"</body></html>\n",15);
 				 }
 				file.close();
-			}
-		}
-}
+				}
+			}	
+	delete []result;
 	}
 
      bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Hello World!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Hello World!</title></head>\n"));
@@ -162,7 +149,6 @@ int main(int argc, char *argv[])
      bytes_sent = write(new_sd,"</body></html>\n",15);
      close(new_sd);
 }
-    std::cout<<"Server read the total amount of: "<<serverBytesRead<<" bytes..!"<<std::endl;
     std::cout << "Stopping server..." << std::endl;
     freeaddrinfo(host_info_list);
     close(socketfd);
