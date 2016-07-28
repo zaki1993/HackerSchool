@@ -126,14 +126,14 @@ int main(int argc, char *argv[])
 			else{
 				std::cout<<"Opened..!"<<std::endl;
 				std::string temp ="";
-				while (!file.eof()) {
-
-				   file >> temp;
 				   bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
 			           bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+			       	   bytes_sent = write(new_sd,"<p><b>200 OK.</b></p>\n",strlen("<p><b>200 OK.</b></p>\n"));
+				while (std::getline(file,temp)) {
 				   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
+				   bytes_sent = write(new_sd,"\n",strlen("\n"));
+				}
 				   bytes_sent = write(new_sd,"</body></html>\n",15);
-				 }
 				file.close();
 				}
 			}	
