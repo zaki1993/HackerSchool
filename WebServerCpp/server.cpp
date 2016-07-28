@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <cstring>      
 #include <sys/socket.h> 
 #include <netdb.h>      
@@ -8,20 +9,9 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <netinet/in.h> 
+#include <fstream>
 
-
-#define STAT_200 " 200 OK\r\n"
-#define STAT_404 " 404 Not Found\r\n"
-#define STAT_501 " 501 Not Implemented\r\n"
-
-#define F_DIR "Content-Type: text/directory\r\n"
-#define F_GIF "Content-Type: image/gif\r\n"
-#define F_HTML "Content-Type: text/html\r\n"
-#define F_JPEG "Content-Type: image/jpeg\r\n"
-#define F_JPG "Content-Type: image/jpg\r\n"
-#define F_TXT "Content-Type: text/plain\r\n"
-
-typedef enum {cgi, gif, html, jpeg, jpg, plain} ext;
+typedef enum {cgi, gif, html, jpeg, jpg, plain,notfound} ext;
 
 ext get_ext(char *file) {
     if (strstr(file, ".cgi") != NULL)
@@ -36,9 +26,25 @@ ext get_ext(char *file) {
         return jpg;
     if (strstr(file, ".txt") != NULL)
         return plain;
+    else{
+	return notfound;
+	}
 }
 
 int serverBytesRead = 0;
+ssize_t bytes_sent = 0;
+
+std::string readTxtFile(std::ifstream& file){
+std::string temp ="";
+while (!file.eof()) {
+
+   file >> temp;
+   std::cout<<temp;
+
+ }
+}
+
+
 int main(int argc, char *argv[])
 {
     int status;
@@ -78,8 +84,9 @@ int main(int argc, char *argv[])
 	}
     std::cout << "Listen()ing for connections..."  << std::endl;
     status =  listen(socketfd, 5);
-	while(1){
     int new_sd;
+	while(1){
+	std::string addrcontainer = "";
     struct sockaddr_storage their_addr;
     socklen_t addr_size = sizeof(their_addr);
     new_sd = accept(socketfd, (struct sockaddr *)&their_addr, &addr_size);
@@ -92,8 +99,7 @@ int main(int argc, char *argv[])
         std::cout << "Connection accepted. Using new socketfd : "  <<  new_sd << std::endl;
     }
 
-
-    ssize_t bytes_recieved;
+    ssize_t bytes_recieved = 0;
     ssize_t totalBytesRead = 0;
     const int buffersize = 1024; 
     char incomming_data_buffer[buffersize];
@@ -103,29 +109,50 @@ int main(int argc, char *argv[])
     do{
     bytes_recieved = recv(new_sd, incomming_data_buffer,buffersize, 0);
     totalBytesRead +=bytes_recieved;
-    if (bytes_recieved == 0) std::cout << "host shut down." << std::endl ;
-    if (bytes_recieved == -1)std::cout << "recieve error!" << std::endl ;
-    if(bytes_recieved != buffersize){
-    incomming_data_buffer[bytes_recieved] = '\0';
-    for(int i = 0;i<bytes_recieved;i++){
-    std::cout <<incomming_data_buffer[i];
-}
- }
-else{
+    if (bytes_recieved == 0){ std::cout<<std::endl << "The server is waiting for your request..!" << std::endl;  close(new_sd);}
+    if (bytes_recieved == -1){ std::cout<<std::endl << "recieve error!" << std::endl;  close(new_sd);}
+
   for(int i = 0;i<bytes_recieved;i++){
     std::cout <<incomming_data_buffer[i];
         }
-    }
 }while(bytes_recieved == buffersize);
      std::cout << totalBytesRead << " bytes recieved" << std::endl;
      serverBytesRead+=totalBytesRead;
 
-     ssize_t bytes_sent;
-     bytes_sent = write(new_sd,"HTTP/1.0 200 OK\n",16); // Write back to client. to bound socket from client. 
-     bytes_sent = write(new_sd,"Connection: Keep-alive\n",23);
-     bytes_sent= write(new_sd,"Connection: close\n",18);
-     bytes_sent = write(new_sd,"Content-type: text/html; charset=UTF-8\n",39);
-     bytes_sent = write(new_sd,"\n",1);
+		  for(int i = 5;i<bytes_recieved,incomming_data_buffer[i]!=' ';i++){;
+			addrcontainer+=incomming_data_buffer[i]; //get the exact address
+        	}
+	
+	if(addrcontainer!="/favicon.ico"){
+		char *result = new char[sizeof(addrcontainer)+1];
+		for(int i = 0;i<sizeof(addrcontainer);i++){
+			result[i] = addrcontainer[i]; //convert the address to char*
+		}	
+	if(get_ext(result)==5){
+		if(!strcmp(result,"test.txt")){
+			std::ifstream file(result);
+			if(file.fail()){
+				std::cout<<"File not found..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 FILE NOT FOUND.</b></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+			}
+			else{
+				std::cout<<"Opened..!"<<std::endl;
+				std::string temp ="";
+				while (!file.eof()) {
+
+				   file >> temp;
+				   std::cout<<temp;
+
+				 }
+				file.close();
+			}
+		}
+}
+	}
+
      bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Hello World!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Hello World!</title></head>\n"));
      bytes_sent = write(new_sd,"<body><h1>Hello World!</h1>\n",strlen("<body><h1>Hello World!</h1>\n"));
      bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
