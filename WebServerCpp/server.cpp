@@ -38,7 +38,7 @@ ext get_ext(char *file) {
         return plain;
 }
 
-
+int serverBytesRead = 0;
 int main(int argc, char *argv[])
 {
     int status;
@@ -94,24 +94,31 @@ int main(int argc, char *argv[])
 
 
     ssize_t bytes_recieved;
+    ssize_t totalBytesRead = 0;
     const int buffersize = 1024; 
     char incomming_data_buffer[buffersize];
-	std::cout<<"Buffer size: "<<sizeof(incomming_data_buffer)<<std::endl;
-	    std::cout << "Waiting to recieve data..."  << std::endl;
+    std::cout<<"Buffer size: "<<sizeof(incomming_data_buffer)<<std::endl;
+    std::cout << "Waiting to recieve data..."  << std::endl;
+
+    do{
     bytes_recieved = recv(new_sd, incomming_data_buffer,buffersize, 0);
-	
+    totalBytesRead +=bytes_recieved;
     if (bytes_recieved == 0) std::cout << "host shut down." << std::endl ;
     if (bytes_recieved == -1)std::cout << "recieve error!" << std::endl ;
-    std::cout << bytes_recieved << " bytes recieved :" << std::endl ;
-if(bytes_recieved != buffersize){
+    if(bytes_recieved != buffersize){
     incomming_data_buffer[bytes_recieved] = '\0';
-    std::cout << "response: "<<incomming_data_buffer << std::endl;
- }
-else{	
-// std::cout << "response: "<<incomming_data_buffer << std::endl;
-
+    for(int i = 0;i<bytes_recieved;i++){
+    std::cout <<incomming_data_buffer[i];
 }
-    
+ }
+else{
+  for(int i = 0;i<bytes_recieved;i++){
+    std::cout <<incomming_data_buffer[i];
+        }
+    }
+}while(bytes_recieved == buffersize);
+     std::cout << totalBytesRead << " bytes recieved" << std::endl;
+     serverBytesRead+=totalBytesRead;
 
      ssize_t bytes_sent;
      bytes_sent = write(new_sd,"HTTP/1.0 200 OK\n",16); // Write back to client. to bound socket from client. 
@@ -126,13 +133,11 @@ else{
      bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
      bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
      bytes_sent = write(new_sd,"</body></html>\n",15);
-close(new_sd);
- 
-	}
+     close(new_sd);
+}
+    std::cout<<"Server read the total amount of: "<<serverBytesRead<<" bytes..!"<<std::endl;
     std::cout << "Stopping server..." << std::endl;
     freeaddrinfo(host_info_list);
-   close(socketfd);
+    close(socketfd);
 return 0 ;
-
-
 }
