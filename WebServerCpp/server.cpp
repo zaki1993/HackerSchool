@@ -211,7 +211,6 @@ int main(int argc, char *argv[])
 	     			bytes_sent = write(new_sd,"</body></html>\n",15);
 			}
 			else{
-				std::cout<<"Txt file opened..!"<<std::endl;
 				std::string temp ="";
 				std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
 				   bytes_sent = write(new_sd, headers.data(), headers.length());
