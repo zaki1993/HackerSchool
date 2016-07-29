@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 		int lengthRes = strlen(addrcontainer.c_str());
 		char *result = new char[lengthRes+1];
 			strcpy(result,addrcontainer.c_str());
-	if(get_ext(result)==0){
+	if(get_ext(result)==0){ //reading gif images
 		std::ifstream file(result,std::ios::in | std::ios::binary);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -138,10 +138,10 @@ int main(int argc, char *argv[])
 				file.close();
 			}
 	}
-	if(get_ext(result)==1){	
+	if(get_ext(result)==1){	//reading html files
 		
 	}
-	if(get_ext(result)==4){
+	if(get_ext(result)==4){ //reading png images
 		std::ifstream file(result,std::ios::in | std::ios::binary);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 				file.close();
 			}
 	}
-	if( get_ext(result) == 3){
+	if( get_ext(result) == 3){ //reading jpg images
 		std::ifstream file(result,std::ios::in | std::ios::binary );
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 				file.close();
 			}
 	}
-	if(get_ext(result)==2){
+	if(get_ext(result)==2){ //reading jpeg images
 		std::ifstream file(result,std::ios::in | std::ios::binary);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 				file.close();
 			}
 	}
-	if(get_ext(result)==5){
+	if(get_ext(result)==5){ //reading txt files
 			std::ifstream file(result);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
 				file.close();
 				}
 			}
-	if(get_ext(result)==6){
+	if(get_ext(result)==6){ //reading video(mp4) files
 	
 		std::ifstream file(result,std::ios::in | std::ios::binary);
 			if(file.fail()){
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 			}
 			
 	}	
-	if(get_ext(result)==7){
+	if(get_ext(result)==7){ //still in progress
 	
 				std::cout<<"Unknown file type..!"<<std::endl;
 				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
