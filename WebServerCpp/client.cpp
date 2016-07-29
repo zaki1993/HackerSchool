@@ -1,54 +1,103 @@
-#include <stdio.h>
+
+#include <iostream>
+
+#include <string.h>
+
 #include <sys/types.h>
+
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h> 
 
-void error(char *msg)
+#include <netdb.h>
+
+#include <unistd.h>
+
+#include <stdlib.h>
+
+#include <errno.h>
+
+#define MAXHOSTNAME 256
+
+using namespace std;
+
+ 
+
+main()
+
 {
-    perror(msg);
-    exit(0);
+
+   struct sockaddr_in remoteSocketInfo;
+
+   struct hostent *hPtr;
+
+   int socketHandle;
+
+   const char *remoteHost="localhost";
+
+   int portNumber = 8081;
+
+ 
+
+   bzero(&remoteSocketInfo, sizeof(sockaddr_in));  // Clear structure memory
+
+
+   if((hPtr = gethostbyname(remoteHost)) == NULL)
+
+   {
+
+      cerr << "System DNS name resolution not configured properly." << endl;
+
+      cerr << "Error number: " << ECONNREFUSED << endl;
+
+      exit(EXIT_FAILURE);
+
+   }
+
+
+   if((socketHandle = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+
+   {
+
+      close(socketHandle);
+
+      exit(EXIT_FAILURE);
+
+   }
+
+ 
+
+   // Load system information into socket data structures
+
+ 
+
+   memcpy((char *)&remoteSocketInfo.sin_addr, hPtr->h_addr, hPtr->h_length);
+
+   remoteSocketInfo.sin_family = AF_INET;
+
+   remoteSocketInfo.sin_port = htons((u_short)portNumber);      // Set port number
+
+ 
+
+   if(connect(socketHandle, (struct sockaddr *)&remoteSocketInfo, sizeof(sockaddr_in)) < 0)
+
+   {
+
+      close(socketHandle);
+
+      exit(EXIT_FAILURE);
+
+   }
+
+ 
+
+   int rc = 0;  // Actual number of bytes read by function read()
+
+   char buf[512];
+
+ 
+
+   strcpy(buf,"Message to send");
+
+   send(socketHandle, buf, strlen(buf)+1, 0);
+
 }
 
-int main(int argc, char *argv[])
-{
-    int sockfd, portno, n;
-
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-
-    char buffer[256];
-    if (argc < 3) {
-       fprintf(stderr,"usage %s hostname port\n", argv[0]);
-       exit(0);
-    }
-    portno = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
-        error("ERROR opening socket");
-    server = gethostbyname(argv[1]);
-    if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
-        exit(0);
-    }
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, 
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-    serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) 
-        error("ERROR connecting");
-    printf("Please enter the message: ");
-    bzero(buffer,256);
-    fgets(buffer,255,stdin);
-    n = write(sockfd,buffer,strlen(buffer));
-    if (n < 0) 
-         error("ERROR writing to socket");
-    bzero(buffer,256);
-    n = read(sockfd,buffer,255);
-    if (n < 0) 
-         error("ERROR reading from socket");
-    printf("%s\n",buffer);
-    return 0;
-}

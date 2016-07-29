@@ -11,13 +11,11 @@
 #include <netinet/in.h> 
 #include <fstream>
 
-typedef enum {cgi, gif, html, jpeg, jpg, plain,notfound} ext;
+typedef enum {mp4, html, jpeg, jpg, plain,notfound} ext;
 
 ext get_ext(char *file) {
-    if (strstr(file, ".cgi") != NULL)
-        return cgi;
-    if (strstr(file, ".gif") != NULL)
-        return gif;
+    if (strstr(file, ".mp4") != NULL)
+        return mp4;
     if (strstr(file, ".html") != NULL)
         return html;
     if (strstr(file, ".jpeg") != NULL)
@@ -32,7 +30,7 @@ ext get_ext(char *file) {
 }
 
 ssize_t bytes_sent = 0;
-
+std::string fullPath;
 int main(int argc, char *argv[])
 {
     int status;
@@ -74,6 +72,7 @@ int main(int argc, char *argv[])
     status =  listen(socketfd, 5);
     int new_sd;
 	while(1){
+	fullPath="";
 	std::string addrcontainer = "";
     struct sockaddr_storage their_addr;
     socklen_t addr_size = sizeof(their_addr);
@@ -112,9 +111,32 @@ int main(int argc, char *argv[])
 	
 	if(addrcontainer!="favicon.ico"){
 	std::cout<<"Container: "<<addrcontainer<<std::endl;
-		char *result = new char[sizeof(addrcontainer)+1];
+		int lengthRes = strlen(addrcontainer.c_str());
+		char *result = new char[lengthRes+1];
 			strcpy(result,addrcontainer.c_str());
-	if(get_ext(result)==5){
+	if(get_ext(result)==1){
+		
+	}
+	if(get_ext(result)==1){	
+		
+	}
+	if(get_ext(result)==2 || get_ext(result) == 3){
+		std::ifstream file(result,std::ios::out | std::ios::binary);
+			if(file.fail()){
+				std::cout<<"File not found..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 IMAGE FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 JPEG FILE NOT FOUND.</b></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+			}
+			else{
+				while(file.good()){
+					file.read(incomming_data_buffer,1);
+					bytes_sent = write(new_sd,incomming_data_buffer,1);
+				}
+			}
+	}
+	if(get_ext(result)==4){
 			std::ifstream file(result);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -124,31 +146,36 @@ int main(int argc, char *argv[])
 	     			bytes_sent = write(new_sd,"</body></html>\n",15);
 			}
 			else{
-				std::cout<<"Opened..!"<<std::endl;
+				std::cout<<"Txt file opened..!"<<std::endl;
 				std::string temp ="";
 				   bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
 			           bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
 			       	   bytes_sent = write(new_sd,"<p><b>200 OK.</b></p>\n",strlen("<p><b>200 OK.</b></p>\n"));
 				while (std::getline(file,temp)) {
+				   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
 				   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
-				   bytes_sent = write(new_sd,"\n",strlen("\n"));
+				    bytes_sent = write(new_sd,"</br>",strlen("</br>"));
 				}
 				   bytes_sent = write(new_sd,"</body></html>\n",15);
 				file.close();
 				}
-			}	
+			}
+	if(get_ext(result)==5){
+	
+				std::cout<<"Unknown file type..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 FILE NOT FOUND.</b></p>\n"));
+				bytes_sent = write(new_sd,"<p><h1>Unknown file type</h1></p>\n",strlen("<p><h1>Unknown file type</h1></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+
+	}	
 	delete []result;
 	}
-
-     bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Hello World!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Hello World!</title></head>\n"));
-     bytes_sent = write(new_sd,"<body><h1>Hello World!</h1>\n",strlen("<body><h1>Hello World!</h1>\n"));
-     bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
-     bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
-     bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
-     bytes_sent = write(new_sd,"<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n",strlen("<div><h1>ZdraZdrastiZdZdraZdrastiZdrastiZdraZdrastiZdrastiZdraZdrastiZdrastirasti</h1></div>\n"));
-     bytes_sent = write(new_sd,"</body></html>\n",15);
      close(new_sd);
 }
+
+
     std::cout << "Stopping server..." << std::endl;
     freeaddrinfo(host_info_list);
     close(socketfd);
