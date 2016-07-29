@@ -11,19 +11,23 @@
 #include <netinet/in.h> 
 #include <fstream>
 
-typedef enum {mp4, html, jpeg, jpg, plain,notfound} ext;
+typedef enum {gif, html, jpeg, jpg, png, plain,mp4, notfound} ext;
 
 ext get_ext(char *file) {
-    if (strstr(file, ".mp4") != NULL)
-        return mp4;
+    if (strstr(file, ".gif") != NULL)
+        return gif;
     if (strstr(file, ".html") != NULL)
         return html;
     if (strstr(file, ".jpeg") != NULL)
         return jpeg;
     if (strstr(file, ".jpg") != NULL)
         return jpg;
+    if (strstr(file, ".png") != NULL)
+        return png;
     if (strstr(file, ".txt") != NULL)
         return plain;
+    if(strstr(file, ".mp4") != NULL)
+	return mp4;
     else{
 	return notfound;
 	}
@@ -101,27 +105,21 @@ int main(int argc, char *argv[])
 
   for(int i = 0;i<bytes_recieved;i++){
     std::cout <<incomming_data_buffer[i];
+	fullPath+=incomming_data_buffer[i];
         }
 }while(bytes_recieved == buffersize);
      std::cout << totalBytesRead << " bytes recieved" << std::endl;
 
-		  for(int i = 5;i<bytes_recieved,incomming_data_buffer[i]!=' ';i++){;
-			addrcontainer+=incomming_data_buffer[i]; //get the exact address
+		  for(int i = 5;fullPath[i]!=' ';i++){;
+			addrcontainer+=fullPath[i]; //get the exact address
         	}
 	
 	if(addrcontainer!="favicon.ico"){
-	std::cout<<"Container: "<<addrcontainer<<std::endl;
 		int lengthRes = strlen(addrcontainer.c_str());
 		char *result = new char[lengthRes+1];
 			strcpy(result,addrcontainer.c_str());
-	if(get_ext(result)==1){
-		
-	}
-	if(get_ext(result)==1){	
-		
-	}
-	if(get_ext(result)==2 || get_ext(result) == 3){
-		std::ifstream file(result,std::ios::out | std::ios::binary);
+	if(get_ext(result)==0){
+		std::ifstream file(result,std::ios::in | std::ios::binary | std::ios::ate);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
 				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
@@ -130,13 +128,84 @@ int main(int argc, char *argv[])
 	     			bytes_sent = write(new_sd,"</body></html>\n",15);
 			}
 			else{
-				while(file.good()){
-					file.read(incomming_data_buffer,1);
-					bytes_sent = write(new_sd,incomming_data_buffer,1);
-				}
+			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: image/gif\r\n\r\n";
+			bytes_sent = write(new_sd, headers.data(), headers.length());
+
+			int imgsize = file.tellg();
+			char *tempimg = new char[imgsize+1];
+			file.seekg(0,std::ios::beg);
+			file.read(tempimg,imgsize);
+			file.close();
+				bytes_sent = write(new_sd,tempimg,imgsize);
 			}
 	}
+	if(get_ext(result)==1){	
+		
+	}
 	if(get_ext(result)==4){
+		std::ifstream file(result,std::ios::in | std::ios::binary | std::ios::ate);
+			if(file.fail()){
+				std::cout<<"File not found..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 IMAGE FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 JPEG FILE NOT FOUND.</b></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+			}
+			else{
+			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: image/png\r\n\r\n";
+			bytes_sent = write(new_sd, headers.data(), headers.length());
+
+			int imgsize = file.tellg();
+			char *tempimg = new char[imgsize+1];
+			file.seekg(0,std::ios::beg);
+			file.read(tempimg,imgsize);
+			file.close();
+				bytes_sent = write(new_sd,tempimg,imgsize);
+			}
+	}
+	if( get_ext(result) == 3){
+		std::ifstream file(result,std::ios::in | std::ios::binary | std::ios::ate);
+			if(file.fail()){
+				std::cout<<"File not found..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 IMAGE FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 JPEG FILE NOT FOUND.</b></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+			}
+			else{
+			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: image/jpg\r\n\r\n";
+			bytes_sent = write(new_sd, headers.data(), headers.length());
+
+			int imgsize = file.tellg();
+			char *tempimg = new char[imgsize+1];
+			file.seekg(0,std::ios::beg);
+			file.read(tempimg,imgsize);
+			file.close();
+				bytes_sent = write(new_sd,tempimg,imgsize);
+			}
+	}
+	if(get_ext(result)==2){
+		std::ifstream file(result,std::ios::in | std::ios::binary | std::ios::ate);
+			if(file.fail()){
+				std::cout<<"File not found..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 IMAGE FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 JPEG FILE NOT FOUND.</b></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+			}
+			else{
+			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: image/jpeg\r\n\r\n";
+			bytes_sent = write(new_sd, headers.data(), headers.length());
+
+			int imgsize = file.tellg();
+			char *tempimg = new char[imgsize+1];
+			file.seekg(0,std::ios::beg);
+			file.read(tempimg,imgsize);
+			file.close();
+				bytes_sent = write(new_sd,tempimg,imgsize);
+			}
+	}
+	if(get_ext(result)==5){
 			std::ifstream file(result);
 			if(file.fail()){
 				std::cout<<"File not found..!"<<std::endl;
@@ -148,6 +217,8 @@ int main(int argc, char *argv[])
 			else{
 				std::cout<<"Txt file opened..!"<<std::endl;
 				std::string temp ="";
+				std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
+				   bytes_sent = write(new_sd, headers.data(), headers.length());
 				   bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
 			           bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
 			       	   bytes_sent = write(new_sd,"<p><b>200 OK.</b></p>\n",strlen("<p><b>200 OK.</b></p>\n"));
@@ -160,7 +231,30 @@ int main(int argc, char *argv[])
 				file.close();
 				}
 			}
-	if(get_ext(result)==5){
+	if(get_ext(result)==6){
+	
+		std::ifstream file(result,std::ios::in | std::ios::binary | std::ios::ate);
+			if(file.fail()){
+				std::cout<<"File not found..!"<<std::endl;
+				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
+	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+	     			bytes_sent = write(new_sd,"<p><b>404 IMAGE FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 JPEG FILE NOT FOUND.</b></p>\n"));
+	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+			}
+			else{
+			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: video/mp4\r\n\r\n";
+			bytes_sent = write(new_sd, headers.data(), headers.length());
+
+			int imgsize = file.tellg();
+			char *tempimg = new char[imgsize+1];
+			file.seekg(0,std::ios::beg);
+			file.read(tempimg,imgsize);
+			file.close();
+				bytes_sent = write(new_sd,tempimg,imgsize);
+			}
+			
+	}	
+	if(get_ext(result)==7){
 	
 				std::cout<<"Unknown file type..!"<<std::endl;
 				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
