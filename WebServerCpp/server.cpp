@@ -260,7 +260,6 @@ int main(int argc, char *argv[])
 			}
 			
 	}	
-<<<<<<< HEAD
 	if(get_ext(result)==7){ //folders 
 		if(addrcontainer==""){
 			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
@@ -282,18 +281,7 @@ int main(int argc, char *argv[])
 				bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
 			}
 		}
-=======
-	if(get_ext(result)==7){ //still in progress
-	
-				std::cout<<"Unknown file type..!"<<std::endl;
-				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 (Not Found)!!</title></head>\n"));
-	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
-	     			bytes_sent = write(new_sd,"<p><b>404 FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 FILE NOT FOUND.</b></p>\n"));
-				bytes_sent = write(new_sd,"<p><h1>Unknown file type</h1></p>\n",strlen("<p><h1>Unknown file type</h1></p>\n"));
-	     			bytes_sent = write(new_sd,"</body></html>\n",15);
->>>>>>> 64c6f9ce45a6cbe41ed1dcb3d755c1d9c742bbb1
-
-	}	
+	}
 	delete []result;
 	}
      close(new_sd);
