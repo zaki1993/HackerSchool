@@ -12,6 +12,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <math.h>
 
 //declaring some variables
 const int buffersize = 1024; 
@@ -19,8 +20,9 @@ char incomming_data_buffer[buffersize];
 ssize_t bytes_sent = 0;
 std::string fullPath;
 int new_sd; //the client socket
-
-
+ssize_t bytes_recieved = 0;
+ssize_t totalBytesRead = 0;
+std::string addrcontainer = "";
 typedef enum {gif, html, jpeg, jpg, png, plain,mp4, notfound} ext; //all the extensions that the web server recognises
 
 //function that finds the extension of the file
@@ -91,28 +93,41 @@ void htmlReader(char* path){
 			}
 				file.close();
 			}
-
 }
-void imageReader(char* result,std::string type){
-
+void imageReader(char* result,std::string type,std::string subtype){
 std::ifstream file(result,std::ios::in | std::ios::binary);
-			if(file.fail()){
-				NotFoundErr(new_sd,bytes_sent);
-			}
-			else{
-			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: image/"+type+"\r\n\r\n";
-			bytes_sent = write(new_sd, headers.data(), headers.length());
-			
-			while(file.tellg()!=-1){
-				file.read(incomming_data_buffer,buffersize);
-				bytes_sent = write(new_sd,incomming_data_buffer,buffersize);
-			}
-				file.close();
-			}
+	if(file.fail()){
+		NotFoundErr(new_sd,bytes_sent);
+	}
+	else{
+	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: "+type+"/"+subtype+"\r\n\r\n";
+	bytes_sent = write(new_sd, headers.data(), headers.length());
+	
+	while(file.tellg()!=-1){
+		file.read(incomming_data_buffer,buffersize);
+		bytes_sent = write(new_sd,incomming_data_buffer,buffersize);
+	}
+		file.close();
+	}
+}
 
+std::string convertIntToString(int number){
+	int length = 0;
+	int copy = number;
+	while(copy!=0){
+	copy=copy/10;
+	length++;
+	}
+	std::string result="";
+	while(length!=0){
+		result += char(48+number/int(pow(10,length-1)));
+		number = number%int(pow(10,length-1));
+		length--;
+	}
+return result;
 }
 int main(int argc, char *argv[])
-{
+{	
     int status;
     struct addrinfo host_info;       
     struct addrinfo *host_info_list; 
@@ -132,19 +147,18 @@ int main(int argc, char *argv[])
 
     std::cout << "Creating a socket..."  << std::endl;
     int socketfd ; // The socket descripter
-    socketfd = socket(host_info_list->ai_family, host_info_list->ai_socktype,
-                      host_info_list->ai_protocol);
+    socketfd = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol);
     if (socketfd == -1)  std::cout << "socket error " ;
 
     std::cout << "Binding socket..."  << std::endl;
     
     int yes = 1;
-    status = setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    status = setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, (char*)true, sizeof(bool));
     status = bind(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
 	if(status<0){
 
 	std::cout<<"Socket error "<<std::endl;
-	 std::cout << "Stopping server..." << std::endl;
+	std::cout << "Stopping server..." << std::endl;
 	freeaddrinfo(host_info_list);	
 	return 0;
 	}
@@ -152,8 +166,10 @@ int main(int argc, char *argv[])
     status =  listen(socketfd, 5);
 
 	while(1){
+	bytes_recieved = 0;
+	totalBytesRead = 0;
 	fullPath="";
-	std::string addrcontainer = "";
+	addrcontainer = "";
     struct sockaddr_storage their_addr;
     socklen_t addr_size = sizeof(their_addr);
     new_sd = accept(socketfd, (struct sockaddr *)&their_addr, &addr_size);
@@ -165,9 +181,6 @@ int main(int argc, char *argv[])
     {
         std::cout << "Connection accepted. Using new socketfd : "  <<  new_sd << std::endl;
     }
-
-    ssize_t bytes_recieved = 0;
-    ssize_t totalBytesRead = 0;
 
     std::cout<<"Buffer size: "<<sizeof(incomming_data_buffer)<<std::endl;
     std::cout << "Waiting to recieve data..."  << std::endl;
@@ -187,93 +200,96 @@ int main(int argc, char *argv[])
 
 		  for(int i = 5;fullPath[i]!=' ';i++){;
 			addrcontainer+=fullPath[i]; //get the exact address
-        	}
-	
+        		}
 	if(addrcontainer!="favicon.ico"){
-		int lengthRes = strlen(addrcontainer.c_str());
-		char *result = new char[lengthRes+1];
+			int lengthRes = strlen(addrcontainer.c_str());
+			char *result = new char[lengthRes+1];
 			strcpy(result,addrcontainer.c_str());
-	if(get_ext(result)==0){ //reading gif images
-		imageReader(result,"gif");
-	}
-	if(get_ext(result)==1){	//reading html files
-		htmlReader(result);
-	}
-	if(get_ext(result)==4){ //reading png images
-		imageReader(result,"png");
-	}
-	if( get_ext(result) == 3){ //reading jpg images
-		imageReader(result,"jpg");
-	}
-	if(get_ext(result)==2){ //reading jpeg images
-		imageReader(result,"jpeg");
-	}
-	if(get_ext(result)==5){ //reading txt files
-			std::ifstream file(result);
-			if(file.fail()){
-				NotFoundErr(new_sd,bytes_sent);
-			}
-			else{
-				std::string temp ="";
-				std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
-				   bytes_sent = write(new_sd, headers.data(), headers.length());
-				   bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
-			           bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
-			       	   bytes_sent = write(new_sd,"<p><b>200 OK.</b></p>\n",strlen("<p><b>200 OK.</b></p>\n"));
-				while (std::getline(file,temp)) {
-				   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
-				   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
-				   bytes_sent = write(new_sd,"</br>",strlen("</br>"));
-				   }
-				 bytes_sent = write(new_sd,"</body></html>\n",15);
-				file.close();
+		if(get_ext(result)==0){ //reading gif images
+			imageReader(result,"image","gif");
+		}
+		if(get_ext(result)==1){	//reading html files
+			if(strstr(result, "field-a=") != NULL && strstr(result, "field-b=")!=NULL){
+				std::string a="",b="";
+				for(int i = strlen("html/plus.html?field-a=");i<strlen(result),(result[i]!='&'&& (result[i]>=char(48) && result[i]<=char(57)));i++){
+					a+=result[i];
+				}
+				for(int i = strlen("html/plus.html?field-a=") + strlen(a.c_str()) + strlen("&field-b=");i<strlen(result),(result[i]>=char(48) && result[i]<=char(57));i++){
+					b+=result[i];
+				}
+				std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n";
+				bytes_sent = write(new_sd, headers.data(), headers.length());
+				if(a=="" || b =="" || result[strlen(result)-1]<char(48) || result[strlen(result)-1]>char(57)){
+					bytes_sent = write(new_sd,"Incorrect input..!",strlen("Incorrect input..!"));
+				}
+				else{
+					int intSum = atoi(a.c_str()) + atoi(b.c_str());
+					bytes_sent = write(new_sd,convertIntToString(intSum).c_str(),strlen(convertIntToString(intSum).c_str()));
 				}
 			}
-	if(get_ext(result)==6){ //reading video(mp4) files
-	
-		std::ifstream file(result,std::ios::in | std::ios::binary);
-			if(file.fail()){
-				NotFoundErr(new_sd,bytes_sent);
+			else{
+				htmlReader(result);
+			}
+		}
+		if(get_ext(result)==4){ //reading png images
+			imageReader(result,"image","png");
+		}
+		if( get_ext(result) == 3){ //reading jpg images
+			imageReader(result,"image","jpg");
+		}
+		if(get_ext(result)==2){ //reading jpeg images
+			imageReader(result,"image","jpeg");
+		}
+		if(get_ext(result)==5){ //reading txt files
+				std::ifstream file(result);
+				if(file.fail()){
+					NotFoundErr(new_sd,bytes_sent);
+				}
+				else{
+					std::string temp ="";
+					std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
+					   bytes_sent = write(new_sd, headers.data(), headers.length());
+					   bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
+					   bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+				       	   bytes_sent = write(new_sd,"<p><b>200 OK.</b></p>\n",strlen("<p><b>200 OK.</b></p>\n"));
+					while (std::getline(file,temp)) {
+					   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
+					   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
+					   bytes_sent = write(new_sd,"</br>",strlen("</br>"));
+					   }
+					bytes_sent = write(new_sd,"</body></html>\n",15);
+					file.close();
+					}
+				}
+		if(get_ext(result)==6){ //reading video(mp4) files
+			imageReader(result,"video","mp4");
+		}	
+		if(get_ext(result)==7){ //folders 
+			if(addrcontainer==""){
+				htmlReader("html/home.html");
 			}
 			else{
-			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: video/mp4\r\n\r\n";
-			bytes_sent = write(new_sd, headers.data(), headers.length());
-			
-			while(file.tellg()!=-1){
-				file.read(incomming_data_buffer,buffersize);
-				bytes_sent = write(new_sd,incomming_data_buffer,buffersize);
-			}
-				file.close();
-			}
-			
-	}	
-	if(get_ext(result)==7){ //folders 
-		if(addrcontainer==""){
-			htmlReader("html/home.html");
-		}
-		else{
-			std::ifstream fold(result);
-			if(fold.fail()){
-				NotFoundErr(new_sd,bytes_sent);
-			}else{
-			   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
-				bytes_sent = write(new_sd, headers.data(), headers.length());
-				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
-				bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
-				getFolderContent(result);	
-				bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
-				fold.close();
+				std::ifstream fold(result);
+				if(fold.fail()){
+					NotFoundErr(new_sd,bytes_sent);
+				}else{
+				   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
+					bytes_sent = write(new_sd, headers.data(), headers.length());
+					bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
+					bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+					getFolderContent(result);	
+					bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
+					fold.close();
+				}
 			}
 		}
-	}
-	delete []result;
+		delete []result;
 	}
      close(new_sd);
 }
-
-
     std::cout << "Stopping server..." << std::endl;
-    freeaddrinfo(host_info_list);
     close(socketfd);
+    freeaddrinfo(host_info_list);
+
 return 0 ;
 }
