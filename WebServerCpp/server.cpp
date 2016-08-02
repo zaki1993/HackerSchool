@@ -13,6 +13,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <math.h>
+#include <pthread.h>
+
 
 //declaring some variables
 const int buffersize = 1024; 
@@ -46,13 +48,14 @@ ext get_ext(char *file) {
 	}
 }
 
-void NotFoundErr(int &cliSocket,ssize_t sent_bytes){ //404 NOT FOUND function template
-				std::cout<<"File not found..!"<<std::endl;
-				bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Error 404 Not Found!!</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Error 404 Not Found!!</title></head>\n"));
-	    		        bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
-	     			bytes_sent = write(new_sd,"<p><b>404 FILE NOT FOUND.</b></p>\n",strlen("<p><b>404 FILE NOT FOUND.</b></p>\n"));
-	     			bytes_sent = write(new_sd,"</body></html>\n",15);
+const char *response_200 = "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<html><body><i>Hello!</i></body></html>";
+const char *response_400 = "HTTP/1.1 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html><body><i>Bad Request!</i></body></html>";
+const char *response_404 = "HTTP/1.1 404 Not Found\nContent-Type: text/html; charset=utf-8\n\n<html><body><i>Not Found!</i></body></html>";
+
+void NotFoundErr(int &cliSocket,ssize_t sent_bytes){ //404 NOT FOUND
+	     			bytes_sent = write(new_sd,response_404,strlen(response_404));
 }
+
 void getFolderContent(std::string path){
 	std::ifstream fin;
 	int num;
@@ -152,7 +155,6 @@ int main(int argc, char *argv[])
 
     std::cout << "Binding socket..."  << std::endl;
     
-    int yes = 1;
     status = setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, (char*)true, sizeof(bool));
     status = bind(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
 	if(status<0){
