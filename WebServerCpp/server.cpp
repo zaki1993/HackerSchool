@@ -14,8 +14,7 @@
 #include <sys/stat.h>
 #include <math.h>//used in intToString function
 #include <pthread.h>//for multythreading
-#include <sstream>
-#include <vector>
+
 
 using namespace std;
 
