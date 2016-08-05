@@ -17,18 +17,19 @@
 using namespace std;
 
 //declaring some variables
-const int buffersize = 4096; 
+const int buffersize = 4096;
 char incomming_data_buffer[buffersize];
 ssize_t bytes_sent = 0;
 std::string fullPath;
 ssize_t bytes_recieved = 0;
 ssize_t totalBytesRead = 0;
 std::string addrcontainer = "";
+int totalClients = 0;
 
-    const char *response_200 = "HTTP/1.0 200 OK\nContent-Type: text/html; charset=utf-8\n\n<html><body><i></i></body></html>";
-    const char *response_400 = "HTTP/1.0 400 Bad Request\nContent-Type: text/html; charset=utf-8\n\n<html><body><i>Bad Request!</i></body></html>";
-    const char *response_404 = "HTTP/1.0 404 Not Found\nContent-Type: text/html; charset=utf-8\n\n<html><body><i>Not Found!</i></body></html>";
-    const char *response_408 = "HTTP/1.0 408 Request Timeout\nContent-Type: text/html; charset=utf-8\n\n<html><body><i>Request Timeout</i></body></html>";
+    const char *response_200 = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i></i></body></html>";
+    const char *response_400 = "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Bad Request!</i></body></html>";
+    const char *response_404 = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Not Found!</i></body></html>";
+    const char *response_408 = "HTTP/1.0 408 Request Timeout\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Request Timeout</i></body></html>";
 
 typedef enum {gif, html, jpeg, jpg, png, plain,mp4, notfound} ext; //all the extensions that the web server recognises
 
@@ -50,15 +51,22 @@ ext get_ext(char *file) {
 	return mp4;
     else{
 	return notfound;
+    }
+}
+bool checkBytesError(ssize_t &num){
+	if(num==-1){
+		return true;
 	}
+	return false;
 }
 void sendResponse(int &socket,const char *request){
 	bytes_sent = write(socket,request,strlen(request));
+	if(checkBytesError(bytes_sent)){std::cout<<"Error sending response..!"<<std::endl; return;}
 }
 void NotFoundErr(int &cliSocket,ssize_t sent_bytes){ //404 NOT FOUND
 	bytes_sent = write(cliSocket,response_404,strlen(response_404));
+	if(checkBytesError(bytes_sent)){std::cout<<"Error sending response..!"<<std::endl; return;}
 }
-
 void getFolderContent(std::string path,int &cliSocket){
 	std::ifstream fin;
 	int num;
@@ -77,8 +85,11 @@ void getFolderContent(std::string path,int &cliSocket){
 	    fin.open( filepath.c_str());
 	    if (fin >> num)
 		bytes_sent = write(cliSocket,"<br>\n",strlen("<br>\n"));
+			if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 	       	bytes_sent = write(cliSocket,filepath.c_str(),strlen(filepath.c_str()));
+			if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 		bytes_sent = write(cliSocket,"</br>\n",strlen("</br>\n"));
+			if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 	    fin.close();
 	    }
 	//close
@@ -93,31 +104,14 @@ void htmlReader(char* path,int &cliSocket){
 			std::string temp = "";
 			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
 			bytes_sent = write(cliSocket, headers.data(), headers.length());
-			
+				if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 			while (std::getline(file,temp)) {
 				bytes_sent = write(cliSocket,temp.c_str(),strlen(temp.c_str()));
+					if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 			}
 				file.close();
 			}
 }
-void imageReader(char* result,std::string type,std::string subtype,int &cliSocket){
-	std::ifstream file(result,std::ios::in | std::ios::binary);
-		if(file.fail()){
-			NotFoundErr(cliSocket,bytes_sent);
-		}
-		else{	
-			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: "+type+"/"+subtype+"\r\n\r\n";
-			bytes_sent = write(cliSocket, headers.data(), headers.length());
-		
-		
-			while(file.tellg()!=-1){
-				file.read(incomming_data_buffer,buffersize-1);
-				bytes_sent = write(cliSocket,incomming_data_buffer,buffersize-1);
-			}
-			file.close();
-		}
-}
-
 std::string convertIntToString(int number){
 	int length = 0;
 	int copy = number;
@@ -133,6 +127,28 @@ std::string convertIntToString(int number){
 		length--;
 	}
 return result;
+}
+void imageReader(char* result,std::string type,std::string subtype,int &cliSocket){
+	std::ifstream file(result,std::ios::in | std::ios::binary);
+		if(file.fail()){
+			NotFoundErr(cliSocket,bytes_sent);
+		}
+		else{	
+			file.seekg(0,file.end);
+			ssize_t sizeF = file.tellg();
+			file.seekg(0,file.beg);
+			std::string headers = "HTTP/1.0 200 OK\r\nAccept-Ranges: "+convertIntToString(sizeF)+"\r\nConnection: keep-alive\r\nContent-type: "+type+"/"+subtype+"\r\n\r\n";
+			bytes_sent = write(cliSocket, headers.data(), headers.length());
+				if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+			while(sizeF>0){
+				file.read(incomming_data_buffer,buffersize);
+				bytes_sent = write(cliSocket,incomming_data_buffer,buffersize);
+					if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; break;}
+				sizeF-=bytes_sent;
+				sleep(0.1);
+			}
+			file.close();
+		}
 }
    void staticFiles(int &new_sd){
 	if(fullPath.substr(0,strlen("GET /"))=="GET /"){ //GET 
@@ -160,10 +176,12 @@ return result;
 					bytes_sent = write(new_sd, headers.data(), headers.length());
 					if(strlen(a.c_str())==0 || strlen(b.c_str())==0 || result[strlen(result)-1]<char(48) || result[strlen(result)-1]>char(57)){
 						bytes_sent = write(new_sd,"Incorrect input..!",strlen("Incorrect input..!"));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 					}
 					else{
 						int intSum = atoi(a.c_str()) + atoi(b.c_str());
 						bytes_sent = write(new_sd,convertIntToString(intSum).c_str(),strlen(convertIntToString(intSum).c_str()));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 					}
 				}
 				else{
@@ -180,20 +198,23 @@ return result;
 				imageReader(result,"image","jpeg",new_sd);
 			}
 			if(get_ext(result)==5){ //reading txt files
-					std::ifstream file(result);
-					if(file.fail()){
+					std::ifstream txtfile(result);
+					if(txtfile.fail()){
 						NotFoundErr(new_sd,bytes_sent);
 					}
 					else{
 						std::string temp ="";
 						sendResponse(new_sd,response_200);
-						while (std::getline(file,temp)) {
-						   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
-						   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
-						   bytes_sent = write(new_sd,"</br>",strlen("</br>"));
+						while (std::getline(txtfile,temp)) {
+							   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
+								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+							   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
+								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+							   bytes_sent = write(new_sd,"</br>",strlen("</br>"));
+								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						   }
 						bytes_sent = write(new_sd,"</body></html>\n",15);
-						file.close();
+						txtfile.close();
 					}
 			}
 			if(get_ext(result)==6){ //reading video(mp4) files
@@ -206,14 +227,18 @@ return result;
 				else{
 					std::ifstream fold(result);
 					if(fold.fail()){
-						NotFoundErr(new_sd,bytes_sent);
+						sendResponse(new_sd,response_400);
 					}else{
 					   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
 						bytes_sent = write(new_sd, headers.data(), headers.length());
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						getFolderContent(result,new_sd);	
 						bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						fold.close();
 					}
 		
@@ -228,6 +253,8 @@ return result;
 	if(fullPath.substr(0,strlen("PUT /"))=="PUT /"){ //PUT
 		
 	}
+	close(new_sd);
+	pthread_exit(0);
 }
 void *handle_request(void *pcliefd) 
 {
@@ -237,18 +264,22 @@ void *handle_request(void *pcliefd)
 	totalBytesRead = 0;
 	fullPath="";
 	addrcontainer = "";
-    do{
+    do{		
+	    memset(incomming_data_buffer,0,buffersize);
+		sleep(0.5);
 	    bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
 	    totalBytesRead +=bytes_recieved;
 	    if (bytes_recieved == 0){ 
-		 sleep(5);
 		 sendResponse(cliefd, response_408);
-		 close(cliefd); 
+		 std::cout<<"Bytes_recieved: 0"<<std::endl;
+		 std::cout<<bytes_recieved<<"-"<<incomming_data_buffer<<std::endl;
+		 close(cliefd);
 		 return 0;
 	    }
 	    if (bytes_recieved == -1){
 		 sendResponse(cliefd, response_400);
 		 close(cliefd); 
+		 std::cout<<"Bytes_recieved: -1"<<std::endl;
 		 return 0;
 	    }
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
@@ -257,11 +288,12 @@ void *handle_request(void *pcliefd)
 	         fullPath+=incomming_data_buffer[i];
     	    }  
 	}
-    }while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
+    }while(incomming_data_buffer[bytes_recieved-4]!='\r' && incomming_data_buffer[bytes_recieved-3]!='\n' && incomming_data_buffer[bytes_recieved-2]!='\r' && incomming_data_buffer[bytes_recieved-1]!='\n');
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
 	}
 	    staticFiles(cliefd);
+	    std::cout<<"Client disconnected: "<<totalClients<<std::endl;
 	    close(cliefd);
     return 0;
 }
@@ -277,7 +309,6 @@ int main(int argc, const char *argv[])
     memset(&host_info, 0, sizeof host_info);
 
     std::cout << "Setting up the structs..."  << std::endl;
-
     host_info.ai_family = AF_UNSPEC;     
     host_info.ai_socktype = SOCK_STREAM; 
     host_info.ai_flags = AI_PASSIVE;    
@@ -289,46 +320,54 @@ int main(int argc, const char *argv[])
     std::cout << "Creating a socket..."  << std::endl;
     int socketfd ; // The socket descripter
     socketfd = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol);
-    if (socketfd == -1)  std::cout << "socket error " ;
+    if (socketfd == -1)  {std::cout << "socket error "<<std::endl; return 0;}
 
     std::cout << "Binding socket..."  << std::endl;
     
     status = setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, (char*)true, sizeof(bool));
     status = bind(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
-	if(status<0){
-
-	std::cout<<"Socket error "<<std::endl;
-	std::cout << "Stopping server..." << std::endl;
-	freeaddrinfo(host_info_list);	
-	return 0;
+	if(status==-1){
+		std::cout<<"Socket error "<<std::endl;
+		std::cout << "Stopping server..." << std::endl;
+		close(socketfd);
+		freeaddrinfo(host_info_list);	
+		return 0;
 	}
-    std::cout << "Listen()ing for connections..."  << std::endl;
-    status =  listen(socketfd, 5);
-
+    std::cout << "Listening for connections on port: "<<port  << std::endl;
+    status = listen(socketfd, 15);
+    if(status!=0){
+	std::cout<<"Listen error..!"<<std::endl;
+	close(socketfd);
+	freeaddrinfo(host_info_list);
+    }
     struct sockaddr_storage clieaddr;
     int cliefd;	
     char s[INET_ADDRSTRLEN];
     socklen_t cliesize;
-
+    cliesize = sizeof(clieaddr);
     while(true) {
-
-        cliesize = sizeof(clieaddr);
         cliefd = accept(socketfd, (struct sockaddr *)&clieaddr, &cliesize);
-        if(cliefd < 0) {
-            perror("accept()");
+        if(cliefd ==-1) {
+            std::cout<<"Connection failed..!"<<std::endl;
             continue;
         }
-
+	totalClients++;
+	std::cout<<"Client connected: "<<totalClients<<std::endl;
         int *pcliefd = new int;
         *pcliefd = cliefd;
         if(true) {
-            if(pthread_create(&thread, 0, handle_request, pcliefd) < 0) {
-                perror("pthread_create()");
+		sleep(0.5);
+            int thrId = pthread_create(&thread, 0, handle_request, pcliefd);
+		pthread_detach(thread);
+	    if(thrId < 0) {
+                std::cout<<"Thread err create..!"<<std::endl;
             } 
-        } else {
+        }
+        else {
             handle_request(pcliefd);
+	    std::cout<<"Thread created.."<<std::endl;
         }
     }
-
+    std::cout<<"Server is shutting down..!"<<std::endl;
     return 0;
 }
