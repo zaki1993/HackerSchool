@@ -3,6 +3,7 @@
 #include "string.h"
 #include "vector"
 #include "algorithm"
+#include <map>
 using namespace std;
 #define pii pair<int, int>
 #define pip pair<int, pii>
@@ -26,9 +27,8 @@ inline void inp(int *n)	//fast input function
 }
 
 const int MAX = 10010;
-int start = 0;
-int end = 0;
-bool check = false;
+int maxW = 0;
+int minW = 0;
 //class implementing Union Find Data Structure with Path Compression
 class Union_Find
 {
@@ -76,26 +76,78 @@ class Union_Find
 };
 
 
-vector< pip > graph;
+vector< pip > graph;	
 int n, e;
 long long int T;
-
+int numberEdges = 0;
+int diferences[100];
+int start = 0;
+int end = 0;
+bool check = false;
+int indexW = 0;
+bool checkOther = false;
+std::map<int,bool> visited;
 void Kruskal_MST()
 {
-	Union_Find UF(n);
-	int u, v;
-
-	for (int i = 0; i < e; ++i)
+	for (int i = 0; i < e; i++)
 	{
-		u = graph[i].S.F;
-		v = graph[i].S.S;
-		if( !UF.find(u, v) )
-		{
-			UF.unite(u, v);
-			T += graph[i].F;
-			if(!check){start = i; check=true;}
-			end=i;
-		}
+		for (int j = 0; j < e; j++){	
+			for(int m = 1;m<=n;m++){
+				visited[m] = false;
+			}
+			if(graph[i].F < graph[j].F){
+				minW = graph[i].F;
+				maxW = graph[j].F;
+			}
+			else{
+				minW = graph[j].F;
+				maxW = graph[i].F;
+			}
+			Union_Find UF(n);
+			int u, v;
+			start = 0;
+			end = 0;
+			checkOther = false;
+			for (int k = 0; k < e; k++)
+			{	
+				vector< pip > check;
+					if(graph[k].F>=minW && graph[k].F<=maxW && i != j){
+						if(visited[graph[k].S.S+1]==false || visited[graph[k].S.F+1]==false){
+						{	
+							if(!checkOther){start=graph[k].F; checkOther= true;}
+							end = graph[k].F;
+							visited[graph[k].S.F+1] = true;
+							visited[graph[k].S.S+1] = true;
+							std::cout<<graph[k].S.F+1<<"-"<<graph[k].S.S+1<<": "<<graph[k].F<<" "<<minW<<"-"<<maxW<<std::endl;
+						}
+					}	
+					
+				}
+			}
+			for (int p = 1; p <= n; p++)
+					{
+						if(visited[p]==true){
+							check = true;
+						}
+						else{
+							check = false;
+							std::cout<<p <<" unvisited"<<std::endl;
+							break;
+						}
+					}
+			if(check){
+				std::cout<<"YES"<<std::endl;
+				check = false;
+				std::cout<<end - start<<std::endl;
+				diferences[indexW] = end-start;
+				indexW++;
+			}
+			std::cout<<"------"<<std::endl;
+
+			
+		}	
+			
+			
 	}
 }
 
@@ -106,7 +158,6 @@ int main()
 	inp(&e);//enter the no of edges
 	
 	graph.resize(e);
-
 	for (int i = 0; i < e; ++i)
 	{
 		inp(&u);	//enter vertex u
@@ -117,11 +168,12 @@ int main()
 		graph[i] = pip( c, pii(u,v));
 	}
 	sort(graph.begin(), graph.end());	//sort the edges in increasing order of cost
-
+	
 	T = 0;
 	Kruskal_MST();
-	cout<<"Nai malka razlika v skorostta: "<<graph[end].F-graph[start].F<<endl;
-	cout<<"("<<graph[start].F<<","<<graph[end].F<<")"<<endl;
-	cout<<"nai kus put: "<<T<<endl;
+	for(int i = 0;i<indexW;i++){
+		std::cout<<diferences[i]<<std::endl;
+	}
+
 	return 0;
 }
