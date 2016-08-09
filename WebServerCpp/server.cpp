@@ -24,8 +24,7 @@ std::string fullPath;
 ssize_t bytes_recieved = 0;
 ssize_t totalBytesRead = 0;
 std::string addrcontainer = "";
-int totalClients = 0;
-
+int closeSockets = 0;
     const char *response_200 = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i></i></body></html>";
     const char *response_400 = "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Bad Request!</i></body></html>";
     const char *response_404 = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Not Found!</i></body></html>";
@@ -34,20 +33,20 @@ int totalClients = 0;
 typedef enum {gif, html, jpeg, jpg, png, plain,mp4, notfound} ext; //all the extensions that the web server recognises
 
 //function that finds the extension of the file
-ext get_ext(char *file) {
-    if (strstr(file, ".gif") != NULL)
+ext get_ext(std::string file1) {
+    if (strstr(file1.c_str(), ".gif") != NULL)
         return gif;
-    if (strstr(file, ".html") != NULL)
+    if (strstr(file1.c_str(), ".html") != NULL)
         return html;
-    if (strstr(file, ".jpeg") != NULL)
+    if (strstr(file1.c_str(), ".jpeg") != NULL)
         return jpeg;
-    if (strstr(file, ".jpg") != NULL)
+    if (strstr(file1.c_str(), ".jpg") != NULL)
         return jpg;
-    if (strstr(file, ".png") != NULL)
+    if (strstr(file1.c_str(), ".png") != NULL)
         return png;
-    if (strstr(file, ".txt") != NULL)
+    if (strstr(file1.c_str(), ".txt") != NULL)
         return plain;
-    if(strstr(file, ".mp4") != NULL)
+    if(strstr(file1.c_str(), ".mp4") != NULL)
 	return mp4;
     else{
 	return notfound;
@@ -95,22 +94,22 @@ void getFolderContent(std::string path,int &cliSocket){
 	//close
 	  closedir( dp );
 }
-void htmlReader(char* path,int &cliSocket){
-			std::ifstream file(path);
-			if(file.fail()){
+void htmlReader(std::string path,int &cliSocket){
+			std::ifstream htm(path.c_str()	);
+			if(htm.fail()){
 				NotFoundErr(cliSocket,bytes_sent);
+				return;
 			}
 			else{
 			std::string temp = "";
 			std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
 			bytes_sent = write(cliSocket, headers.data(), headers.length());
 				if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-			while (std::getline(file,temp)) {
+			while (std::getline(htm,temp)) {
 				bytes_sent = write(cliSocket,temp.c_str(),strlen(temp.c_str()));
 					if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 			}
-				file.close();
-			}
+			}htm.close();
 }
 std::string convertIntToString(int number){
 	int length = 0;
@@ -128,10 +127,11 @@ std::string convertIntToString(int number){
 	}
 return result;
 }
-void imageReader(char* result,std::string type,std::string subtype,int &cliSocket){
-	std::ifstream file(result,std::ios::in | std::ios::binary);
+void imageReader(std::string result,std::string type,std::string subtype,int &cliSocket){
+	std::ifstream file(result.c_str(),std::ios::in | std::ios::binary);
 		if(file.fail()){
 			NotFoundErr(cliSocket,bytes_sent);
+			return;
 		}
 		else{	
 			file.seekg(0,file.end);
@@ -145,36 +145,32 @@ void imageReader(char* result,std::string type,std::string subtype,int &cliSocke
 				bytes_sent = write(cliSocket,incomming_data_buffer,buffersize);
 					if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; break;}
 				sizeF-=bytes_sent;
-				sleep(0.1);
 			}
-			file.close();
-		}
+		}file.close();
 }
    void staticFiles(int &new_sd){
-	if(fullPath.substr(0,strlen("GET /"))=="GET /"){ //GET 
-	        for(ssize_t i = fullPath.find("GET /") + strlen("GET /") ;fullPath[i]!=' ';i++){;
+   		sleep(2);
+   		if(fullPath.substr(0,strlen("GET /"))=="GET /"){ //GET 
+	        for(ssize_t i = fullPath.find("GET /") + strlen("GET /") ;fullPath[i]!=' ';i++){
 			addrcontainer+=fullPath[i]; //get the exact address
 		}
 		if(addrcontainer!="favicon.ico"){
-				int lengthRes = strlen(addrcontainer.c_str());
-				char *result = new char[lengthRes+1];
-				strcpy(result,addrcontainer.c_str());
-	
-			if(get_ext(result)==0){ //reading gif images
-				imageReader(result,"image","gif",new_sd);
+				
+			if(get_ext(addrcontainer.c_str())==0){ //reading gif images
+				imageReader(addrcontainer,"image","gif",new_sd);
 			}
-			if(get_ext(result)==1){	//reading html files
-				if(strstr(result, "field-a=") != NULL && strstr(result, "field-b=")!=NULL){
+			if(get_ext(addrcontainer.c_str())==1){	//reading html files
+				if(strstr(addrcontainer.c_str(), "field-a=") != NULL && strstr(addrcontainer.c_str(), "field-b=")!=NULL){
 					std::string a="",b="";
-					for(ssize_t i = std::string (result).find("field-a=")+strlen("field-a=");i<strlen(result),(result[i]!='&'&& (result[i]>=char(48) && result[i]<=char(57)));i++){
-						a+=result[i];
+					for(ssize_t i = std::string (addrcontainer.c_str()).find("field-a=")+strlen("field-a=");i<strlen(addrcontainer.c_str()),(addrcontainer.c_str()[i]!='&'&& (addrcontainer.c_str()[i]>=char(48) && addrcontainer.c_str()[i]<=char(57)));i++){
+						a+=addrcontainer.c_str()[i];
 					}
-					for(ssize_t i = std::string (result).find("field-a=")+strlen("field-a=") + strlen(a.c_str()) + strlen("&field-b=");i<strlen(result),(result[i]>=char(48) && result[i]<=char(57));i++){
-						b+=result[i];
+					for(ssize_t i = std::string (addrcontainer.c_str()).find("field-a=")+strlen("field-a=") + strlen(a.c_str()) + strlen("&field-b=");i<strlen(addrcontainer.c_str()),(addrcontainer.c_str()[i]>=char(48) && addrcontainer.c_str()[i]<=char(57));i++){
+						b+=addrcontainer.c_str()[i];
 					}
 					std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n";
 					bytes_sent = write(new_sd, headers.data(), headers.length());
-					if(strlen(a.c_str())==0 || strlen(b.c_str())==0 || result[strlen(result)-1]<char(48) || result[strlen(result)-1]>char(57)){
+					if(strlen(a.c_str())==0 || strlen(b.c_str())==0 || addrcontainer.c_str()[strlen(addrcontainer.c_str())-1]<char(48) || addrcontainer.c_str()[strlen(addrcontainer.c_str())-1]>char(57)){
 						bytes_sent = write(new_sd,"Incorrect input..!",strlen("Incorrect input..!"));
 							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 					}
@@ -185,22 +181,23 @@ void imageReader(char* result,std::string type,std::string subtype,int &cliSocke
 					}
 				}
 				else{
-					htmlReader(result,new_sd);
+					htmlReader(addrcontainer.c_str(),new_sd);
 				}
 			}
-			if(get_ext(result)==4){ //reading png images
-				imageReader(result,"image","png",new_sd);
+			if(get_ext(addrcontainer.c_str())==4){ //reading png images
+				imageReader(addrcontainer,"image","png",new_sd);
 			}
-			if( get_ext(result) == 3){ //reading jpg images
-				imageReader(result,"image","jpg",new_sd);
+			if( get_ext(addrcontainer.c_str()) == 3){ //reading jpg images
+				imageReader(addrcontainer,"image","jpg",new_sd);
 			}
-			if(get_ext(result)==2){ //reading jpeg images
-				imageReader(result,"image","jpeg",new_sd);
+			if(get_ext(addrcontainer.c_str())==2){ //reading jpeg images
+				imageReader(addrcontainer,"image","jpeg",new_sd);
 			}
-			if(get_ext(result)==5){ //reading txt files
-					std::ifstream txtfile(result);
+			if(get_ext(addrcontainer.c_str())==5){ //reading txt files
+					std::ifstream txtfile(addrcontainer.c_str());
 					if(txtfile.fail()){
 						NotFoundErr(new_sd,bytes_sent);
+						return;
 					}
 					else{
 						std::string temp ="";
@@ -214,20 +211,20 @@ void imageReader(char* result,std::string type,std::string subtype,int &cliSocke
 								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						   }
 						bytes_sent = write(new_sd,"</body></html>\n",15);
-						txtfile.close();
-					}
+					}txtfile.close();
 			}
-			if(get_ext(result)==6){ //reading video(mp4) files
-				imageReader(result,"video","mp4",new_sd);
+			if(get_ext(addrcontainer.c_str())==6){ //reading video(mp4) files
+				imageReader(addrcontainer,"video","mp4",new_sd);
 			}	
-			if(get_ext(result)==7){ //folders 
+			if(get_ext(addrcontainer.c_str())==7){ //folders 
 				if(addrcontainer==""){
 					htmlReader("html/home.html",new_sd);
 				}
 				else{
-					std::ifstream fold(result);
+					std::ifstream fold(addrcontainer.c_str());
 					if(fold.fail()){
 						sendResponse(new_sd,response_400);
+						return;
 					}else{
 					   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
 						bytes_sent = write(new_sd, headers.data(), headers.length());
@@ -236,15 +233,13 @@ void imageReader(char* result,std::string type,std::string subtype,int &cliSocke
 							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 						bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
 							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-						getFolderContent(result,new_sd);	
+						getFolderContent(addrcontainer.c_str(),new_sd);	
 						bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
 							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-						fold.close();
 					}
-		
+					fold.close();
 			}
 			}
-			delete []result;
 		}
 	}
 	if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
@@ -253,49 +248,40 @@ void imageReader(char* result,std::string type,std::string subtype,int &cliSocke
 	if(fullPath.substr(0,strlen("PUT /"))=="PUT /"){ //PUT
 		
 	}
-	close(new_sd);
-	pthread_exit(0);
 }
-void *handle_request(void *pcliefd) 
+void handle_request(int &cliefd) 
 {
-    int cliefd = *(int*)pcliefd;
-    delete (int *)pcliefd;
-	bytes_recieved = 0;
 	totalBytesRead = 0;
 	fullPath="";
 	addrcontainer = "";
-    do{		
-	    memset(incomming_data_buffer,0,buffersize);
-		sleep(0.5);
+   do{
+   		sleep(2);
 	    bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
-	    totalBytesRead +=bytes_recieved;
-	    if (bytes_recieved == 0){ 
+	 if (bytes_recieved == 0 && strcmp(incomming_data_buffer,"")!=0){ 
 		 sendResponse(cliefd, response_408);
+		 closeSockets = close(cliefd);
 		 std::cout<<"Bytes_recieved: 0"<<std::endl;
-		 std::cout<<bytes_recieved<<"-"<<incomming_data_buffer<<std::endl;
-		 close(cliefd);
-		 return 0;
+		 break;
 	    }
 	    if (bytes_recieved == -1){
 		 sendResponse(cliefd, response_400);
-		 close(cliefd); 
-		 std::cout<<"Bytes_recieved: -1"<<std::endl;
-		 return 0;
+		 std::cout<<"Bytes_recieved: -1"<<std::endl;	
+		 break;	
 	    }
-	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
-	    for(int i = 0;i<bytes_recieved;i++){
-	         std::cout <<incomming_data_buffer[i];
-	         fullPath+=incomming_data_buffer[i];
-    	    }  
-	}
-    }while(incomming_data_buffer[bytes_recieved-4]!='\r' && incomming_data_buffer[bytes_recieved-3]!='\n' && incomming_data_buffer[bytes_recieved-2]!='\r' && incomming_data_buffer[bytes_recieved-1]!='\n');
+	    if(bytes_recieved>0){
+	    	totalBytesRead+=bytes_recieved;
+			if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
+					std::cout<<incomming_data_buffer<<std::endl;
+			    for(int i = 0;i<bytes_recieved;i++){
+			         fullPath+=incomming_data_buffer[i];
+		    	    }  
+			}
+	    }
+	} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
-	}
+	}	
 	    staticFiles(cliefd);
-	    std::cout<<"Client disconnected: "<<totalClients<<std::endl;
-	    close(cliefd);
-    return 0;
 }
 
 int main(int argc, const char *argv[])
@@ -304,8 +290,6 @@ int main(int argc, const char *argv[])
     struct addrinfo host_info;       
     struct addrinfo *host_info_list;
     const char* port = argv[1];
-    pthread_t thread;
-
     memset(&host_info, 0, sizeof host_info);
 
     std::cout << "Setting up the structs..."  << std::endl;
@@ -320,7 +304,7 @@ int main(int argc, const char *argv[])
     std::cout << "Creating a socket..."  << std::endl;
     int socketfd ; // The socket descripter
     socketfd = socket(host_info_list->ai_family, host_info_list->ai_socktype, host_info_list->ai_protocol);
-    if (socketfd == -1)  {std::cout << "socket error "<<std::endl; return 0;}
+    if (socketfd == -1) {std::cout << "socket error "<<std::endl; return 0;}
 
     std::cout << "Binding socket..."  << std::endl;
     
@@ -334,40 +318,48 @@ int main(int argc, const char *argv[])
 		return 0;
 	}
     std::cout << "Listening for connections on port: "<<port  << std::endl;
-    status = listen(socketfd, 15);
+    status = listen(socketfd, 50);
     if(status!=0){
-	std::cout<<"Listen error..!"<<std::endl;
-	close(socketfd);
-	freeaddrinfo(host_info_list);
+		std::cout<<"Listen error..!"<<std::endl;
+		close(socketfd);
+		freeaddrinfo(host_info_list);
+		return 0;
     }
     struct sockaddr_storage clieaddr;
     int cliefd;	
     char s[INET_ADDRSTRLEN];
     socklen_t cliesize;
     cliesize = sizeof(clieaddr);
-    while(true) {
+    while(1) {
         cliefd = accept(socketfd, (struct sockaddr *)&clieaddr, &cliesize);
         if(cliefd ==-1) {
             std::cout<<"Connection failed..!"<<std::endl;
             continue;
         }
-	totalClients++;
-	std::cout<<"Client connected: "<<totalClients<<std::endl;
+		/*totalClients++;
+		std::cout<<"Client connected: "<<totalClients<<std::endl;
         int *pcliefd = new int;
         *pcliefd = cliefd;
-        if(true) {
-		sleep(0.5);
-            int thrId = pthread_create(&thread, 0, handle_request, pcliefd);
-		pthread_detach(thread);
-	    if(thrId < 0) {
-                std::cout<<"Thread err create..!"<<std::endl;
+        	if(totalClients%1000==0){
+        		sleep(2);
+        	}
+	    if(pthread_create(&thread, 0, handle_request, pcliefd) < 0) {
+	    		std::cout<<"Err connecting thread..!"<<std::endl;
             } 
-        }
-        else {
-            handle_request(pcliefd);
-	    std::cout<<"Thread created.."<<std::endl;
-        }
+            */
+            if(fork()==0){
+            	if((closeSockets = close(socketfd))<0){
+            		std::cout<<"Error closing server socket..!"<<std::endl;
+            	}
+        		handle_request(cliefd); //run this function
+            	if((closeSockets = close(cliefd))<0){
+            		std::cout<<"Error closing client socket..!"<<std::endl;
+            	}
+            	exit(0);
+            }
+            if((closeSockets = close(cliefd))<0){
+            		std::cout<<"Error closing client socket..!"<<std::endl;
+           	}
     }
-    std::cout<<"Server is shutting down..!"<<std::endl;
     return 0;
 }
