@@ -149,7 +149,7 @@ void imageReader(std::string result,std::string type,std::string subtype,int &cl
 		}file.close();
 }
    void staticFiles(int &new_sd){
-   		sleep(2);
+   		usleep(2500);
    		if(fullPath.substr(0,strlen("GET /"))=="GET /"){ //GET 
 	        for(ssize_t i = fullPath.find("GET /") + strlen("GET /") ;fullPath[i]!=' ';i++){
 			addrcontainer+=fullPath[i]; //get the exact address
@@ -249,39 +249,43 @@ void imageReader(std::string result,std::string type,std::string subtype,int &cl
 		
 	}
 }
-void handle_request(int &cliefd) 
+bool handle_request(int &cliefd) 
 {
 	totalBytesRead = 0;
 	fullPath="";
 	addrcontainer = "";
-   do{
-   		sleep(2);
-	    bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
-	 if (bytes_recieved == 0 && strcmp(incomming_data_buffer,"")!=0){ 
-		 sendResponse(cliefd, response_408);
-		 closeSockets = close(cliefd);
-		 std::cout<<"Bytes_recieved: 0"<<std::endl;
-		 break;
-	    }
-	    if (bytes_recieved == -1){
-		 sendResponse(cliefd, response_400);
-		 std::cout<<"Bytes_recieved: -1"<<std::endl;	
-		 break;	
-	    }
-	    if(bytes_recieved>0){
-	    	totalBytesRead+=bytes_recieved;
-			if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
-					std::cout<<incomming_data_buffer<<std::endl;
-			    for(int i = 0;i<bytes_recieved;i++){
-			         fullPath+=incomming_data_buffer[i];
-		    	    }  
-			}
-	    }
-	} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
+
+ 	if(cliefd>0){
+	   do{
+	   		usleep(2500);
+				 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
+				 if (bytes_recieved == 0){ 
+				 		return false;
+				    }
+				    else if (bytes_recieved == -1){
+					 std::cout<<"Bytes_recieved: -1"<<std::endl;	
+					 exit(0);
+				    }
+				    else if(bytes_recieved>0){
+				    	totalBytesRead+=bytes_recieved;
+						if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
+								std::cout<<incomming_data_buffer<<std::endl;
+						    for(int i = 0;i<bytes_recieved;i++){
+						         fullPath+=incomming_data_buffer[i];
+					    	    }  
+						}
+				    }
+		} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
+	}
+	else{
+		exit(0);
+	}
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
 	}	
+
 	    staticFiles(cliefd);
+	    return true;
 }
 
 int main(int argc, const char *argv[])
@@ -331,35 +335,40 @@ int main(int argc, const char *argv[])
     socklen_t cliesize;
     cliesize = sizeof(clieaddr);
     while(1) {
+    	static int counter = 0;
+    	counter++;
+    	if(counter%5000==0){
+    		usleep(50000);
+    	}
         cliefd = accept(socketfd, (struct sockaddr *)&clieaddr, &cliesize);
         if(cliefd ==-1) {
             std::cout<<"Connection failed..!"<<std::endl;
             continue;
         }
-		/*totalClients++;
-		std::cout<<"Client connected: "<<totalClients<<std::endl;
-        int *pcliefd = new int;
-        *pcliefd = cliefd;
-        	if(totalClients%1000==0){
-        		sleep(2);
-        	}
-	    if(pthread_create(&thread, 0, handle_request, pcliefd) < 0) {
-	    		std::cout<<"Err connecting thread..!"<<std::endl;
-            } 
-            */
             if(fork()==0){
             	if((closeSockets = close(socketfd))<0){
             		std::cout<<"Error closing server socket..!"<<std::endl;
             	}
-        		handle_request(cliefd); //run this function
-            	if((closeSockets = close(cliefd))<0){
-            		std::cout<<"Error closing client socket..!"<<std::endl;
-            	}
-            	exit(0);
+        			if(!handle_request(cliefd)){ //run this function
+        				exit(0);
+        			}
+        			else{
+		            	if((closeSockets = close(cliefd))<0){
+		            		std::cout<<"Error closing client socket..!"<<std::endl;
+		            	}
+		            	exit(0);
+           			 }	
             }
-            if((closeSockets = close(cliefd))<0){
-            		std::cout<<"Error closing client socket..!"<<std::endl;
-           	}
+            else{
+	            if((closeSockets = close(cliefd))<0){
+	            		std::cout<<"Error closing client socket..!"<<std::endl;
+	           	}
+	           	continue;
+	           }
     }
+    close(socketfd);
+    freeaddrinfo(host_info_list);
     return 0;
 }
+
+

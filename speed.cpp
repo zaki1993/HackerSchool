@@ -85,8 +85,13 @@ int start = 0;
 int end = 0;
 bool check = false;
 int indexW = 0;
+int numE = 0;
 bool checkOther = false;
 std::map<int,bool> visited;
+
+int numPairs = 0;
+std::map<int,int> temp;
+int arr[100];
 void Kruskal_MST()
 {
 	for (int i = 0; i < e; i++)
@@ -110,20 +115,29 @@ void Kruskal_MST()
 			checkOther = false;
 			for (int k = 0; k < e; k++)
 			{	
-				vector< pip > check;
 					if(graph[k].F>=minW && graph[k].F<=maxW && i != j){
-						if(visited[graph[k].S.S+1]==false || visited[graph[k].S.F+1]==false){
+						if(visited[graph[k].S.S+1]==false || visited[graph[k].S.F+1]==false ){
 						{	
 							if(!checkOther){start=graph[k].F; checkOther= true;}
 							end = graph[k].F;
 							visited[graph[k].S.F+1] = true;
 							visited[graph[k].S.S+1] = true;
 							std::cout<<graph[k].S.F+1<<"-"<<graph[k].S.S+1<<": "<<graph[k].F<<" "<<minW<<"-"<<maxW<<std::endl;
+							temp[graph[k].S.F+1] = graph[k].S.S+1;
+							arr[numPairs] = graph[k].S.F+1;
+							numPairs++;
+							arr[numPairs] = graph[k].S.S+1;
+							numPairs++;
 						}
 					}	
 					
 				}
 			}
+			for(int d = 0;d<numPairs;d++){
+				std::cout<<arr[d]<<" ";
+			}
+			memset(arr,0,100);
+			numPairs = 0;
 			for (int p = 1; p <= n; p++)
 					{
 						if(visited[p]==true){
@@ -131,17 +145,18 @@ void Kruskal_MST()
 						}
 						else{
 							check = false;
+							std::cout<<std::endl;
 							std::cout<<p <<" unvisited"<<std::endl;
 							break;
 						}
 					}
-			if(check){
 				std::cout<<"YES"<<std::endl;
 				check = false;
 				std::cout<<end - start<<std::endl;
 				diferences[indexW] = end-start;
 				indexW++;
 			}
+				numE = 0 ;
 			std::cout<<"------"<<std::endl;
 
 			
