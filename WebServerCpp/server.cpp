@@ -276,7 +276,7 @@ bool handle_request(int &cliefd)
 					    	    }  
 						}
 				    }
-		} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n' && strlen(incomming_data_buffer)!=0);
+		} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
 	}	
@@ -355,16 +355,17 @@ int main(int argc, const char *argv[])
 	        	if(close(socketfd)<0){
 	        		std::cout<<"Socket close error: SERVER"<<std::endl;
 	        	}
-	        		int result = handle_request(cliefd);
-	        		if(!result){
-	        			std::cout<<"0 bytes_recieved"<<std::endl;
-	        		}
-	        		else{
-	        			std::cout<<"Everything is OK..!"<<std::endl;
-	        		}
-	        		exit(0);
+        		int result = handle_request(cliefd);
+        		if(!result){
+        			std::cout<<"0 bytes_recieved"<<std::endl;
+        		}
+        		else{
+        			std::cout<<"Everything is OK..!"<<std::endl;
+        		}
+        		exit(0);
 	        }
     }
+    freeaddrinfo(host_info_list);
     return 0;
 }
 
