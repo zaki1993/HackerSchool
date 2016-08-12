@@ -2,8 +2,10 @@
 #include "stdio.h"
 #include "string.h"
 #include "vector"
-#include "algorithm"
+#include <algorithm> 
+#include <iterator>
 #include <map>
+#include <string>
 using namespace std;
 #define pii pair<int, int>
 #define pip pair<int, pii>
@@ -89,9 +91,11 @@ int numE = 0;
 bool checkOther = false;
 std::map<int,bool> visited;
 
-int numPairs = 0;
-std::map<int,int> temp;
+int numElements = 0;
+int elements[100];
 int arr[100];
+std::vector<std::pair<int,int> > bfsQ;
+std::pair<int,int> tempPair;
 void Kruskal_MST()
 {
 	for (int i = 0; i < e; i++)
@@ -113,57 +117,47 @@ void Kruskal_MST()
 			start = 0;
 			end = 0;
 			checkOther = false;
+			for(int l = 0;l<numElements;l++){
+				elements[l] = 0;
+			}
+			numElements = 0;
 			for (int k = 0; k < e; k++)
 			{	
-					if(graph[k].F>=minW && graph[k].F<=maxW && i != j){
-						if(visited[graph[k].S.S+1]==false || visited[graph[k].S.F+1]==false ){
-						{	
-							if(!checkOther){start=graph[k].F; checkOther= true;}
-							end = graph[k].F;
-							visited[graph[k].S.F+1] = true;
-							visited[graph[k].S.S+1] = true;
-							std::cout<<graph[k].S.F+1<<"-"<<graph[k].S.S+1<<": "<<graph[k].F<<" "<<minW<<"-"<<maxW<<std::endl;
-							temp[graph[k].S.F+1] = graph[k].S.S+1;
-							arr[numPairs] = graph[k].S.F+1;
-							numPairs++;
-							arr[numPairs] = graph[k].S.S+1;
-							numPairs++;
+				if(graph[k].F>=minW && graph[k].F<=maxW && i != j){
+					if(visited[graph[k].S.S+1]==false || visited[graph[k].S.F+1]==false )
+					{	
+						if(!checkOther){start=graph[k].F; checkOther= true;}
+						end = graph[k].F;
+						visited[graph[k].S.F+1] = true;
+						visited[graph[k].S.S+1] = true;
+						std::cout<<graph[k].S.F+1<<"-"<<graph[k].S.S+1<<": "<<graph[k].F<<" "<<minW<<"-"<<maxW<<std::endl;
+						int val1 = graph[k].S.F+1;
+						if(*(std::find(elements,elements+numElements,val1))==*(elements+100)){
+							elements[numElements] = val1;
+							numElements++;
 						}
-					}	
-					
-				}
-			}
-			for(int d = 0;d<numPairs;d++){
-				std::cout<<arr[d]<<" ";
-			}
-			memset(arr,0,100);
-			numPairs = 0;
-			for (int p = 1; p <= n; p++)
-					{
-						if(visited[p]==true){
-							check = true;
+						int val2 = graph[k].S.S+1;
+						if(*(std::find(elements,elements+numElements,val2))==*(elements+100)){
+							elements[numElements] = val2;
+							numElements++;
 						}
-						else{
-							check = false;
-							std::cout<<std::endl;
-							std::cout<<p <<" unvisited"<<std::endl;
-							break;
-						}
+						tempPair = std::pair<int,int>(val1,val2);
+						std::cout<<tempPair.first<<tempPair.second<<"-------_"<<std::endl; 
+						bfsQ.push_back(std::pair<int,int>(val1,val2));
 					}
-				std::cout<<"YES"<<std::endl;
-				check = false;
-				std::cout<<end - start<<std::endl;
-				diferences[indexW] = end-start;
-				indexW++;
+				}	
 			}
-				numE = 0 ;
-			std::cout<<"------"<<std::endl;
-
+			while(bfsQ.size()!=0){
+				std::cout<<bfsQ[0].first<<" "<<bfsQ[0].second<<std::endl;
+				bfsQ.pop_back();
+			}
+			for(int p = 0;p<numElements;p++){
+				std::cout<<elements[p]<<std::endl;
+			}
+		}
 			
-		}	
+	}	
 			
-			
-	}
 }
 
 int main()
@@ -189,6 +183,5 @@ int main()
 	for(int i = 0;i<indexW;i++){
 		std::cout<<diferences[i]<<std::endl;
 	}
-
 	return 0;
 }

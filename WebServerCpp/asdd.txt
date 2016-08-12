@@ -1,0 +1,3 @@
+journalic file system
+etc passwd and etc shadow differences
+swap

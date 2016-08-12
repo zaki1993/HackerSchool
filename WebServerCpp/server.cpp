@@ -260,7 +260,9 @@ bool handle_request(int &cliefd)
 	   		usleep(2500);
 				 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
 				 if (bytes_recieved == 0){ 
-				 		return false;
+				 		if(sleep(2) && (bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0))==0){
+				 			return false;
+				 		}
 				    }
 				    else if (bytes_recieved == -1){
 					 std::cout<<"Bytes_recieved: -1"<<std::endl;	
@@ -302,7 +304,7 @@ int main(int argc, const char *argv[])
     host_info.ai_flags = AI_PASSIVE;    
 
     status = getaddrinfo(NULL, port, &host_info, &host_info_list); //127.0.0.1 = NULL
-    
+
     if (status != 0){ std::cout<<"Could not connect to port: "<<port<<std::endl; return 0; }
 
     std::cout << "Creating a socket..."  << std::endl;
@@ -312,7 +314,7 @@ int main(int argc, const char *argv[])
 
     std::cout << "Binding socket..."  << std::endl;
     
-    status = setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, (char*)true, sizeof(bool));
+    status = setsockopt(socketfd, SOL_SOCKET, SO_KEEPALIVE, (char*)true, sizeof(bool));
     status = bind(socketfd, host_info_list->ai_addr, host_info_list->ai_addrlen);
 	if(status==-1){
 		std::cout<<"Socket error "<<std::endl;
@@ -348,14 +350,21 @@ int main(int argc, const char *argv[])
             if(fork()==0){
             	if((closeSockets = close(socketfd))<0){
             		std::cout<<"Error closing server socket..!"<<std::endl;
+            	}else{
+            		std::cout<<"Closing server socket..!"<<std::endl;
             	}
         			if(!handle_request(cliefd)){ //run this function
+        				usleep(2500);
         				exit(0);
         			}
         			else{
+        				usleep(2500);
 		            	if((closeSockets = close(cliefd))<0){
 		            		std::cout<<"Error closing client socket..!"<<std::endl;
 		            	}
+		            	else{
+            				std::cout<<"Closing clie socket..!"<<std::endl;
+            			}
 		            	exit(0);
            			 }	
             }
@@ -363,6 +372,9 @@ int main(int argc, const char *argv[])
 	            if((closeSockets = close(cliefd))<0){
 	            		std::cout<<"Error closing client socket..!"<<std::endl;
 	           	}
+           		else{
+        				std::cout<<"Closing clie socket..!"<<std::endl;
+        			}
 	           	continue;
 	           }
     }
