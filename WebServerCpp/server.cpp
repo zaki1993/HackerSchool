@@ -242,11 +242,11 @@ void imageReader(std::string result,std::string type,std::string subtype,int &cl
 			}
 		}
 	}
-	if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
-	
+	else if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
+		std::cout<<"POST method..!"<<std::endl; //comming soon;
 	}
-	if(fullPath.substr(0,strlen("PUT /"))=="PUT /"){ //PUT
-		
+	else{
+		std::cout<<"Cannot recognise the path specified..!"<<std::endl; // comming soon
 	}
 }
 bool handle_request(int &cliefd) 
@@ -255,7 +255,6 @@ bool handle_request(int &cliefd)
 	fullPath="";
 	addrcontainer = "";
 
- 	if(cliefd>0){
 	   do{
 	   		usleep(2500);
 				 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
@@ -277,15 +276,10 @@ bool handle_request(int &cliefd)
 					    	    }  
 						}
 				    }
-		} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
-	}
-	else{
-		exit(0);
-	}
+		} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n' && strlen(incomming_data_buffer)!=0);
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
 	}	
-
 	    staticFiles(cliefd);
 	    return true;
 }
@@ -319,12 +313,14 @@ int main(int argc, const char *argv[])
 	if(status==-1){
 		std::cout<<"Socket error "<<std::endl;
 		std::cout << "Stopping server..." << std::endl;
-		close(socketfd);
+		if(close(socketfd)<0){
+			std::cout<<"Socket close error: SERVER"<<std::endl;
+		}
 		freeaddrinfo(host_info_list);	
 		return 0;
 	}
     std::cout << "Listening for connections on port: "<<port  << std::endl;
-    status = listen(socketfd, 50);
+    status = listen(socketfd, 100);
     if(status!=0){
 		std::cout<<"Listen error..!"<<std::endl;
 		close(socketfd);
@@ -336,50 +332,39 @@ int main(int argc, const char *argv[])
     char s[INET_ADDRSTRLEN];
     socklen_t cliesize;
     cliesize = sizeof(clieaddr);
-    while(1) {
+    while((cliefd = accept(socketfd, (struct sockaddr *)&clieaddr, &cliesize))) {
     	static int counter = 0;
     	counter++;
     	if(counter%5000==0){
     		usleep(50000);
     	}
-        cliefd = accept(socketfd, (struct sockaddr *)&clieaddr, &cliesize);
         if(cliefd ==-1) {
             std::cout<<"Connection failed..!"<<std::endl;
             continue;
         }
-            if(fork()==0){
-            	if((closeSockets = close(socketfd))<0){
-            		std::cout<<"Error closing server socket..!"<<std::endl;
-            	}else{
-            		std::cout<<"Closing server socket..!"<<std::endl;
-            	}
-        			if(!handle_request(cliefd)){ //run this function
-        				usleep(2500);
-        				exit(0);
-        			}
-        			else{
-        				usleep(2500);
-		            	if((closeSockets = close(cliefd))<0){
-		            		std::cout<<"Error closing client socket..!"<<std::endl;
-		            	}
-		            	else{
-            				std::cout<<"Closing clie socket..!"<<std::endl;
-            			}
-		            	exit(0);
-           			 }	
-            }
-            else{
-	            if((closeSockets = close(cliefd))<0){
-	            		std::cout<<"Error closing client socket..!"<<std::endl;
-	           	}
-           		else{
-        				std::cout<<"Closing clie socket..!"<<std::endl;
-        			}
-	           	continue;
-	           }
+        	int pid;
+	        while((pid = fork())<0){
+	        	usleep(1000);
+	        }
+	        if(pid){
+	        	if(close(cliefd)<0){
+	        		std::cout<<"Socket close error: CLIENT"<<std::endl;
+	        	}
+	        }
+	        else{
+	        	if(close(socketfd)<0){
+	        		std::cout<<"Socket close error: SERVER"<<std::endl;
+	        	}
+	        		int result = handle_request(cliefd);
+	        		if(!result){
+	        			std::cout<<"0 bytes_recieved"<<std::endl;
+	        		}
+	        		else{
+	        			std::cout<<"Everything is OK..!"<<std::endl;
+	        		}
+	        		exit(0);
+	        }
     }
-    close(socketfd);
-    freeaddrinfo(host_info_list);
     return 0;
 }
 
