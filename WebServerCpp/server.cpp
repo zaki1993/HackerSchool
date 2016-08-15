@@ -25,10 +25,11 @@ ssize_t bytes_recieved = 0;
 ssize_t totalBytesRead = 0;
 std::string addrcontainer = "";
 int closeSockets = 0;
-    const char *response_200 = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i></i></body></html>";
+    const char *response_200 = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i></i>200 OK</body></html>";
     const char *response_400 = "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Bad Request!</i></body></html>";
     const char *response_404 = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Not Found!</i></body></html>";
     const char *response_408 = "HTTP/1.0 408 Request Timeout\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Request Timeout</i></body></html>";
+    const char *response_download = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><h1>DOWNLOADED</h1></i></body></html>";
 
 typedef enum {gif, html, jpeg, jpg, png, plain,mp4, notfound} ext; //all the extensions that the web server recognises
 
@@ -47,10 +48,8 @@ ext get_ext(std::string file1) {
     if (strstr(file1.c_str(), ".txt") != NULL)
         return plain;
     if(strstr(file1.c_str(), ".mp4") != NULL)
-	return mp4;
-    else{
-	return notfound;
-    }
+		return mp4;
+    return notfound;
 }
 bool checkBytesError(ssize_t &num){
 	if(num==-1){
@@ -58,12 +57,8 @@ bool checkBytesError(ssize_t &num){
 	}
 	return false;
 }
-void sendResponse(int &socket,const char *request){
-	bytes_sent = write(socket,request,strlen(request));
-	if(checkBytesError(bytes_sent)){std::cout<<"Error sending response..!"<<std::endl; return;}
-}
-void NotFoundErr(int &cliSocket,ssize_t sent_bytes){ //404 NOT FOUND
-	bytes_sent = write(cliSocket,response_404,strlen(response_404));
+void sendResponse(int &socket,const char *response){
+	bytes_sent = write(socket,response,strlen(response));
 	if(checkBytesError(bytes_sent)){std::cout<<"Error sending response..!"<<std::endl; return;}
 }
 void getFolderContent(std::string path,int &cliSocket){
@@ -95,9 +90,9 @@ void getFolderContent(std::string path,int &cliSocket){
 	  closedir( dp );
 }
 void htmlReader(std::string path,int &cliSocket){
-			std::ifstream htm(path.c_str()	);
+			std::ifstream htm(path.c_str());
 			if(htm.fail()){
-				NotFoundErr(cliSocket,bytes_sent);
+				sendResponse(cliSocket,response_404);
 				return;
 			}
 			else{
@@ -128,155 +123,178 @@ std::string convertIntToString(int number){
 return result;
 }
 void imageReader(std::string result,std::string type,std::string subtype,int &cliSocket){
-	std::ifstream file(result.c_str(),std::ios::in | std::ios::binary);
-		if(file.fail()){
-			NotFoundErr(cliSocket,bytes_sent);
-			return;
-		}
-		else{	
-			file.seekg(0,file.end);
-			ssize_t sizeF = file.tellg();
-			file.seekg(0,file.beg);
-			std::string headers = "HTTP/1.0 200 OK\r\nAccept-Ranges: "+convertIntToString(sizeF)+"\r\nConnection: keep-alive\r\nContent-type: "+type+"/"+subtype+"\r\n\r\n";
-			bytes_sent = write(cliSocket, headers.data(), headers.length());
-				if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-			while(sizeF>0){
-				file.read(incomming_data_buffer,buffersize);
-				bytes_sent = write(cliSocket,incomming_data_buffer,buffersize);
-					if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; break;}
-				sizeF-=bytes_sent;
+	std::ifstream file;
+	if(strstr(result.c_str(),"&download")!=NULL && result.find("&download")==(strlen(result.c_str())-strlen("&download")) && (result.find("."+subtype)+1==result.find("&download")-strlen(subtype.c_str()))){
+			file.open(result.substr(0,result.find("&download")).c_str(),std::ios::out | std::ios::binary);
+			if(file.fail()){
+				sendResponse(cliSocket,response_404);
+				return;
 			}
-		}file.close();
+			else{
+				std::string headers = "HTTP/1.0 200 OK\r\n Content-Description: File Transfer\r\nConnection: keep-alive\r\nContent-type: application/force-download \r\n\r\n";
+				bytes_sent = write(cliSocket, headers.data(), headers.length());
+			}
+		}
+	else{
+		    file.open(result.c_str(),std::ios::out | std::ios::binary);
+			if(file.fail()){
+				sendResponse(cliSocket,response_404);
+				return;
+			}
+			else{	
+				std::string headers = "HTTP/1.0 200 OK\r\nConnection: keep-alive\r\nContent-type: "+type+"/"+subtype+"\r\n\r\n";
+				bytes_sent = write(cliSocket, headers.data(), headers.length());
+			}
+
+		}
+	file.seekg(0,file.end);
+	ssize_t sizeF = file.tellg();
+	file.seekg(0,file.beg);
+	if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+	while(sizeF>0){
+		file.read(incomming_data_buffer,buffersize);
+		bytes_sent = write(cliSocket,incomming_data_buffer,buffersize);
+		if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; break;}
+		sizeF-=bytes_sent;
+	}file.close();
+}
+void GETMethod(int &new_sd,std::string addrcontainer){
+		if(get_ext(addrcontainer)==0){ //reading gif images
+			imageReader(addrcontainer,"image","gif",new_sd);
+		}
+		else if(get_ext(addrcontainer)==1){	//reading html files
+			if(strstr(addrcontainer.c_str(), "field-a=") != NULL && strstr(addrcontainer.c_str(), "field-b=")!=NULL){
+				std::string a="",b="";
+				for(ssize_t i = addrcontainer.find("field-a=")+strlen("field-a=");i<strlen(addrcontainer.c_str()),(addrcontainer.c_str()[i]!='&'&& (addrcontainer.c_str()[i]>=char(48) && addrcontainer.c_str()[i]<=char(57)));i++){
+					a+=addrcontainer.c_str()[i];
+				}
+				for(ssize_t i = addrcontainer.find("field-a=")+strlen("field-a=") + strlen(a.c_str()) + strlen("&field-b=");i<strlen(addrcontainer.c_str()),(addrcontainer.c_str()[i]>=char(48) && addrcontainer.c_str()[i]<=char(57));i++){
+					b+=addrcontainer.c_str()[i];
+				}
+				std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n";
+				bytes_sent = write(new_sd, headers.data(), headers.length());
+				if(strlen(a.c_str())==0 || strlen(b.c_str())==0 || addrcontainer.c_str()[strlen(addrcontainer.c_str())-1]<char(48) || addrcontainer.c_str()[strlen(addrcontainer.c_str())-1]>char(57)){
+					bytes_sent = write(new_sd,"Incorrect input..!",strlen("Incorrect input..!"));
+						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+				}
+				else{
+					int intSum = atoi(a.c_str()) + atoi(b.c_str());
+					bytes_sent = write(new_sd,convertIntToString(intSum).c_str(),strlen(convertIntToString(intSum).c_str()));
+						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+				}
+			}
+			else{
+				htmlReader(addrcontainer.c_str(),new_sd);
+			}
+		}
+		else if(get_ext(addrcontainer)==4){ //reading png images
+			imageReader(addrcontainer,"image","png",new_sd);
+		}
+		else if( get_ext(addrcontainer) == 3){ //reading jpg images
+			imageReader(addrcontainer,"image","jpg",new_sd);
+		}
+		else if(get_ext(addrcontainer)==2){ //reading jpeg images
+			imageReader(addrcontainer,"image","jpeg",new_sd);
+		}
+		else if(get_ext(addrcontainer)==5){ //reading txt files
+				std::ifstream txtfile(addrcontainer.c_str());
+				if(txtfile.fail()){
+					sendResponse(new_sd,response_404);
+					return;
+				}
+				else{
+					std::string temp ="";
+					sendResponse(new_sd,response_200);
+					while (std::getline(txtfile,temp)) {
+						   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+						   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+						   bytes_sent = write(new_sd,"</br>",strlen("</br>"));
+							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+					   }
+					bytes_sent = write(new_sd,"</body></html>\n",15);
+				}txtfile.close();
+		}
+		else if(get_ext(addrcontainer)==6){ //reading video(mp4) files
+			imageReader(addrcontainer,"video","mp4",new_sd);
+		}	
+		else { //folders 
+			if(addrcontainer==""){
+				htmlReader("html/home.html",new_sd);
+			}
+			else{
+				std::ifstream fold(addrcontainer.c_str());
+				if(fold.fail()){
+					sendResponse(new_sd,response_400);
+					return;
+				}else{
+				   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
+					bytes_sent = write(new_sd, headers.data(), headers.length());
+						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+					bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
+						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+					bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
+						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+					getFolderContent(addrcontainer.c_str(),new_sd);	
+					bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
+						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+				}
+				fold.close();
+			}
+		}
+}
+void POSTMethod(int &new_sd,std::string addrcontainer){
+//comming soon;
+	if(strstr(addrcontainer.c_str(),"uploads")!=NULL){
+		std::cout<<"llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"<<std::endl;
+	}
+	if(get_ext(addrcontainer)==1){	//reading html files
+				htmlReader("uploads/uploaded.html",new_sd);
+	}
 }
    void staticFiles(int &new_sd){
    		usleep(2500);
    		if(fullPath.substr(0,strlen("GET /"))=="GET /"){ //GET 
 	        for(ssize_t i = fullPath.find("GET /") + strlen("GET /") ;fullPath[i]!=' ';i++){
-			addrcontainer+=fullPath[i]; //get the exact address
+				addrcontainer+=fullPath[i]; //get the exact address
+			}
+			GETMethod(new_sd,addrcontainer);
 		}
-		if(addrcontainer!="favicon.ico"){
-				
-			if(get_ext(addrcontainer.c_str())==0){ //reading gif images
-				imageReader(addrcontainer,"image","gif",new_sd);
+		if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
+			 for(ssize_t i = fullPath.find("POST /") + strlen("POST /") ;fullPath[i]!=' ';i++){
+				addrcontainer+=fullPath[i]; //get the exact address
 			}
-			if(get_ext(addrcontainer.c_str())==1){	//reading html files
-				if(strstr(addrcontainer.c_str(), "field-a=") != NULL && strstr(addrcontainer.c_str(), "field-b=")!=NULL){
-					std::string a="",b="";
-					for(ssize_t i = std::string (addrcontainer.c_str()).find("field-a=")+strlen("field-a=");i<strlen(addrcontainer.c_str()),(addrcontainer.c_str()[i]!='&'&& (addrcontainer.c_str()[i]>=char(48) && addrcontainer.c_str()[i]<=char(57)));i++){
-						a+=addrcontainer.c_str()[i];
-					}
-					for(ssize_t i = std::string (addrcontainer.c_str()).find("field-a=")+strlen("field-a=") + strlen(a.c_str()) + strlen("&field-b=");i<strlen(addrcontainer.c_str()),(addrcontainer.c_str()[i]>=char(48) && addrcontainer.c_str()[i]<=char(57));i++){
-						b+=addrcontainer.c_str()[i];
-					}
-					std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n";
-					bytes_sent = write(new_sd, headers.data(), headers.length());
-					if(strlen(a.c_str())==0 || strlen(b.c_str())==0 || addrcontainer.c_str()[strlen(addrcontainer.c_str())-1]<char(48) || addrcontainer.c_str()[strlen(addrcontainer.c_str())-1]>char(57)){
-						bytes_sent = write(new_sd,"Incorrect input..!",strlen("Incorrect input..!"));
-							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-					}
-					else{
-						int intSum = atoi(a.c_str()) + atoi(b.c_str());
-						bytes_sent = write(new_sd,convertIntToString(intSum).c_str(),strlen(convertIntToString(intSum).c_str()));
-							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-					}
-				}
-				else{
-					htmlReader(addrcontainer.c_str(),new_sd);
-				}
-			}
-			if(get_ext(addrcontainer.c_str())==4){ //reading png images
-				imageReader(addrcontainer,"image","png",new_sd);
-			}
-			if( get_ext(addrcontainer.c_str()) == 3){ //reading jpg images
-				imageReader(addrcontainer,"image","jpg",new_sd);
-			}
-			if(get_ext(addrcontainer.c_str())==2){ //reading jpeg images
-				imageReader(addrcontainer,"image","jpeg",new_sd);
-			}
-			if(get_ext(addrcontainer.c_str())==5){ //reading txt files
-					std::ifstream txtfile(addrcontainer.c_str());
-					if(txtfile.fail()){
-						NotFoundErr(new_sd,bytes_sent);
-						return;
-					}
-					else{
-						std::string temp ="";
-						sendResponse(new_sd,response_200);
-						while (std::getline(txtfile,temp)) {
-							   bytes_sent = write(new_sd,"<br>",strlen("<br>"));
-								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-							   bytes_sent = write(new_sd,temp.c_str(),strlen(temp.c_str()));
-								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-							   bytes_sent = write(new_sd,"</br>",strlen("</br>"));
-								if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-						   }
-						bytes_sent = write(new_sd,"</body></html>\n",15);
-					}txtfile.close();
-			}
-			if(get_ext(addrcontainer.c_str())==6){ //reading video(mp4) files
-				imageReader(addrcontainer,"video","mp4",new_sd);
-			}	
-			if(get_ext(addrcontainer.c_str())==7){ //folders 
-				if(addrcontainer==""){
-					htmlReader("html/home.html",new_sd);
-				}
-				else{
-					std::ifstream fold(addrcontainer.c_str());
-					if(fold.fail()){
-						sendResponse(new_sd,response_400);
-						return;
-					}else{
-					   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
-						bytes_sent = write(new_sd, headers.data(), headers.length());
-							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-						bytes_sent = write(new_sd,"<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n",strlen("<!DOCTYPE HTML>\n<html><head><title>Status 200 OK</title></head>\n"));
-							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-						bytes_sent = write(new_sd,"<body>\n",strlen("<body>\n"));
-							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-						getFolderContent(addrcontainer.c_str(),new_sd);	
-						bytes_sent = write(new_sd,"</body>\n",strlen("</body>\n"));
-							if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
-					}
-					fold.close();
-			}
-			}
+			POSTMethod(new_sd,addrcontainer);
 		}
-	}
-	else if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
-		std::cout<<"POST method..!"<<std::endl; //comming soon;
-	}
-	else{
-		std::cout<<"Cannot recognise the path specified..!"<<std::endl; // comming soon
-	}
 }
 bool handle_request(int &cliefd) 
 {
 	totalBytesRead = 0;
 	fullPath="";
 	addrcontainer = "";
-
-	   do{
-	   		usleep(2500);
-				 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
-				 if (bytes_recieved == 0){ 
-				 		if(sleep(2) && (bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0))==0){
-				 			return false;
-				 		}
-				    }
-				    else if (bytes_recieved == -1){
+    do{
+   		usleep(2500);
+			 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
+			 if (bytes_recieved == 0){ 
+			 		if(sleep(5) && (bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0))==0){
+			 			return false;
+			 		}
+			    }
+			    else if (bytes_recieved == -1){
 					 std::cout<<"Bytes_recieved: -1"<<std::endl;	
 					 exit(0);
-				    }
-				    else if(bytes_recieved>0){
-				    	totalBytesRead+=bytes_recieved;
-						if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
-								std::cout<<incomming_data_buffer<<std::endl;
-						    for(int i = 0;i<bytes_recieved;i++){
-						         fullPath+=incomming_data_buffer[i];
-					    	    }  
-						}
-				    }
-		} while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
+			    }
+			    else if(bytes_recieved>0){
+			    	totalBytesRead+=bytes_recieved;
+					if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
+							std::cout<<incomming_data_buffer<<std::endl;
+					}
+				    for(int i = 0;i<bytes_recieved;i++){
+				         fullPath+=incomming_data_buffer[i];
+			        }  
+			    }
+	}while(incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n');
 	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
 	}	
@@ -345,22 +363,23 @@ int main(int argc, const char *argv[])
         	int pid;
 	        while((pid = fork())<0){
 	        	usleep(1000);
+	        	std::cout<<"no child process"<<std::endl;
+	        	std::cout<<pid<<std::endl;
 	        }
-	        if(pid){
+	        if(pid==0){
+	        	usleep(500);
 	        	if(close(cliefd)<0){
 	        		std::cout<<"Socket close error: CLIENT"<<std::endl;
 	        	}
 	        }
 	        else{
+	        	usleep(500);
 	        	if(close(socketfd)<0){
 	        		std::cout<<"Socket close error: SERVER"<<std::endl;
 	        	}
         		int result = handle_request(cliefd);
         		if(!result){
         			std::cout<<"0 bytes_recieved"<<std::endl;
-        		}
-        		else{
-        			std::cout<<"Everything is OK..!"<<std::endl;
         		}
         		exit(0);
 	        }
