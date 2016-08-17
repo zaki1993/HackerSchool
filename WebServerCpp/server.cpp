@@ -17,7 +17,7 @@
 using namespace std;
 
 //declaring some variables
-const int buffersize = 4096;
+const int buffersize = 1024;
 char incomming_data_buffer[buffersize];
 ssize_t bytes_sent = 0;
 std::string fullPath;
@@ -288,7 +288,7 @@ void GETMethod(int &new_sd,std::string addrcontainer){
 void POSTMethod(int &new_sd,std::string addrcontainer){
 //comming soon;
 	if(strstr(addrcontainer.c_str(),"uploads/upload.html")!=NULL){	//reading html files
-				htmlReader("uploads/upload.html",new_sd); //uploaded.html ***
+		htmlReader("uploads/upload.html",new_sd); 
 	}
 }
    void staticFiles(int &new_sd){
@@ -309,12 +309,13 @@ void POSTMethod(int &new_sd,std::string addrcontainer){
 }
 bool handle_request(int &cliefd) 
 {	
-	std::cout<<"11111111111111111111111111111111111111111"<<std::endl;
 	totalBytesRead = 0;
 	fullPath="";
 	int contentLength = 0;
-	std::ofstream uploadFile;
+	std::ofstream uploadFile("uploads/log.txt",std::ios::out | std::ios::app | std::ios::binary);
 	std::string fileName = "";
+	std::string fileExtension = "";
+	bool checkForFile = false;
     do{
    		usleep(2500);
 			 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
@@ -330,34 +331,42 @@ bool handle_request(int &cliefd)
 			    else if(bytes_recieved>0){
 			    	totalBytesRead+=bytes_recieved;
 					if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
-							std::cout<<"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: "<<incomming_data_buffer<<std::endl;
+							std::cout<<incomming_data_buffer<<std::endl;
 					}					
 					if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 					    for(int i = 0;i<bytes_recieved;i++){
 					         fullPath+=incomming_data_buffer[i];
-							 uploadFile<<incomming_data_buffer[i]<<std::endl;
+					         	std::cout<<"fullpath length: "<<strlen(fullPath.c_str())<<std::endl;
 				        }  
 				    }
 				    if(strstr(incomming_data_buffer,"POST /")!=NULL){
 					    if(strstr(incomming_data_buffer,"Content-Length: ")!=NULL){
 					    	std::string temporary = std::string (incomming_data_buffer);
 					    	contentLength = atoi((temporary.substr(temporary.find("Content-Length: ")+strlen("Content-Length: "),temporary.find("Cache-Control: "))).c_str());
-					    	std::cout<<"contentLength: "<<contentLength<<std::endl;
 					    }
 					    if(strstr(incomming_data_buffer,"filename=\"")!=NULL && strstr(incomming_data_buffer,"Content-Type")!=NULL){
-					    	std::cout<<"here"<<std::endl;
 					    	std::string nameTemp = std::string(incomming_data_buffer);
-					    	fileName = nameTemp.substr(nameTemp.find("filename=\"")+strlen("filename=\""),nameTemp.find("filename=\"")+strlen("filename=\"")+ 10);
-	   						std::cout<<"fileName: "<<fileName<<std::endl;
+					    	nameTemp = nameTemp.substr(nameTemp.find("filename=\"")+strlen("filename=\""));
+					    	fileName = nameTemp.substr(nameTemp.find("\""));
+					    }
+					    if(strstr(incomming_data_buffer,"Content-Type: ")!=NULL){
+					    	std::string tempExtension = std::string(incomming_data_buffer);
+					    	tempExtension = tempExtension.substr(tempExtension.find("Content-Type: "));
+					    	fileExtension = tempExtension.substr(tempExtension.find("/"));
 					    }
 					}
-			    }
-	}while((incomming_data_buffer[bytes_recieved-2]!='\n' && incomming_data_buffer[bytes_recieved-1]!='\n') || (fullPath.substr(0,strlen("POST /")) == "POST /" && totalBytesRead<=contentLength));
-	if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
-	    std::cout << totalBytesRead << " bytes recieved" << std::endl;
-	}	
+			    }		   	    
+	}while((incomming_data_buffer[bytes_recieved-1]!='\n' && incomming_data_buffer[bytes_recieved]!='\n'));	
+	   std::cout << totalBytesRead << " bytes recieved" << std::endl;
+	   if(strstr(fullPath.c_str(),"POST /")){
+	   	std::cout<<"fullpath length: "<<strlen(fullPath.c_str())<<std::endl;
+			std::string openFile = fileName+"."+fileExtension;
+			uploadFile.open(openFile.c_str(),std::ios::out | std::ios::binary | std::ios::trunc);	
+			for(int i = fullPath.find((("/")+fileExtension).c_str());i<strlen(fullPath.c_str());i++){
+				uploadFile<<fullPath[i];
+			}
+	   }
 	    staticFiles(cliefd);
-	    std::cout<<"2222222222222222222222222222222222222222222222222"<<std::endl;
 	    uploadFile.close();
 	    return true;
 }
@@ -373,7 +382,7 @@ int main(int argc, const char *argv[])
     std::cout << "Setting up the structs..."  << std::endl;
     host_info.ai_family = AF_UNSPEC;     
     host_info.ai_socktype = SOCK_STREAM; 
-    host_info.ai_flags = AI_PASSIVE;    
+    host_info.ai_flags = AI_PASSIVE; 
 
     status = getaddrinfo(NULL, port, &host_info, &host_info_list); //127.0.0.1 = NULL
 
