@@ -233,14 +233,6 @@ void GETMethod(int &new_sd,std::string addrcontainer){
 						if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 				}
 			}
-			else if(!strcmp(addrcontainer.c_str(),"uploads/upload.html")){
-			    //reset the fileUploader 
-				std::ofstream uploadFil("upload.txt",std::ios::out | std::ios::binary | std::ios::trunc);
-				uploadFil.close();
-				sleep(1);
-				//ends here
-				htmlReader(addrcontainer,new_sd);
-			}
 			else{
 				htmlReader(addrcontainer,new_sd);
 			}
@@ -287,8 +279,9 @@ void GETMethod(int &new_sd,std::string addrcontainer){
 }
 void POSTMethod(int &new_sd,std::string addrcontainer){
 //comming soon;
+	std::cout<<addrcontainer<<std::endl;
 	if(strstr(addrcontainer.c_str(),"uploads/upload.html")!=NULL){	//reading html files
-		htmlReader("uploads/upload.html",new_sd); 
+				htmlReader("uploads/upload.html",new_sd); //uploaded.html ***
 	}
 }
    void staticFiles(int &new_sd){
@@ -312,10 +305,10 @@ bool handle_request(int &cliefd)
 	totalBytesRead = 0;
 	fullPath="";
 	int contentLength = 0;
-	std::ofstream uploadFile("uploads/log.txt",std::ios::out | std::ios::app | std::ios::binary);
+	std::ofstream requestFile("request.txt",std::ios::out | std::ios::binary);
 	std::string fileName = "";
 	std::string fileExtension = "";
-	bool checkForFile = false;
+	bool checkPost = false;
     do{
    		usleep(2500);
 			 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
@@ -335,9 +328,12 @@ bool handle_request(int &cliefd)
 					}					
 					if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 					    for(int i = 0;i<bytes_recieved;i++){
+					         requestFile<<incomming_data_buffer[i];
 					         fullPath+=incomming_data_buffer[i];
-					         	std::cout<<"fullpath length: "<<strlen(fullPath.c_str())<<std::endl;
 				        }  
+				    }
+				    if(strstr(incomming_data_buffer,"POST /")!=NULL){
+				    	checkPost = true;
 				    }
 				    if(strstr(incomming_data_buffer,"POST /")!=NULL){
 					    if(strstr(incomming_data_buffer,"Content-Length: ")!=NULL){
@@ -356,18 +352,10 @@ bool handle_request(int &cliefd)
 					    }
 					}
 			    }		   	    
-	}while((incomming_data_buffer[bytes_recieved-1]!='\n' && incomming_data_buffer[bytes_recieved]!='\n'));	
-	   std::cout << totalBytesRead << " bytes recieved" << std::endl;
-	   if(strstr(fullPath.c_str(),"POST /")){
-	   	std::cout<<"fullpath length: "<<strlen(fullPath.c_str())<<std::endl;
-			std::string openFile = fileName+"."+fileExtension;
-			uploadFile.open(openFile.c_str(),std::ios::out | std::ios::binary | std::ios::trunc);	
-			for(int i = fullPath.find((("/")+fileExtension).c_str());i<strlen(fullPath.c_str());i++){
-				uploadFile<<fullPath[i];
-			}
-	   }
+	}while(strstr(incomming_data_buffer,"\r\n\r\n")==NULL || (checkPost && totalBytesRead<=contentLength));	
+	   
 	    staticFiles(cliefd);
-	    uploadFile.close();
+	    requestFile.close();
 	    return true;
 }
 
@@ -382,7 +370,7 @@ int main(int argc, const char *argv[])
     std::cout << "Setting up the structs..."  << std::endl;
     host_info.ai_family = AF_UNSPEC;     
     host_info.ai_socktype = SOCK_STREAM; 
-    host_info.ai_flags = AI_PASSIVE; 
+    host_info.ai_flags = AI_PASSIVE;    
 
     status = getaddrinfo(NULL, port, &host_info, &host_info_list); //127.0.0.1 = NULL
 
@@ -456,5 +444,3 @@ int main(int argc, const char *argv[])
     freeaddrinfo(host_info_list);
     return 0;
 }
-
-
