@@ -26,12 +26,18 @@ ssize_t totalBytesRead = 0;
 std::string addrcontainer = "";
 int closeSockets = 0;
 
+/* POST METHOD VARS */
+	int contentLength = 0;
+	std::string fileName = "";
+	std::string fileExtension = "";
+/* POST METHOD VARS */
+
 /* RESPONSES */
-    const char *response_200 = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i></i>200 OK</body></html>";
-    const char *response_400 = "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Bad Request!</i></body></html>";
-    const char *response_404 = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Not Found!</i></body></html>";
-    const char *response_408 = "HTTP/1.0 408 Request Timeout\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i>Request Timeout</i></body></html>";
-    const char *response_download = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><h1>DOWNLOADED</h1></i></body></html>";
+    const char *response_200 = "HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><b>200 OK</b></i></body></html>";
+    const char *response_400 = "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><b>Bad Request</b></i></body></html>";
+    const char *response_404 = "HTTP/1.0 404 Not Found\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><b>Not Found</b></i></body></html>";
+    const char *response_408 = "HTTP/1.0 408 Request Timeout\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><b>Request Timeout</b></i></body></html>";
+    const char *response_403 = "HTTP/1.0 403 Forbiden\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><body><i><b>403 Forbiden</b></i></body></html>";
 /* RESPONSES */
 
 typedef enum {gif, html, jpeg, jpg, png, plain,mp4, notfound} ext; //all the extensions that the web server recognises
@@ -259,7 +265,7 @@ void GETMethod(int &new_sd,std::string addrcontainer){
 			else{
 				std::ifstream fold(addrcontainer.c_str());
 				if(fold.fail()){
-					sendResponse(new_sd,response_400);
+					sendResponse(new_sd,response_404);
 					return;
 				}else{
 				   	std::string headers = "HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n";
@@ -279,13 +285,18 @@ void GETMethod(int &new_sd,std::string addrcontainer){
 }
 void POSTMethod(int &new_sd,std::string addrcontainer){
 //comming soon;
-	std::cout<<addrcontainer<<std::endl;
 	if(strstr(addrcontainer.c_str(),"uploads/upload.html")!=NULL){	//reading html files
 				htmlReader("uploads/upload.html",new_sd); //uploaded.html ***
 	}
 }
    void staticFiles(int &new_sd){
    		addrcontainer = "";
+   		std::ifstream responseFile("request.txt",std::ios::in | std::ios::binary | std::ios::app);
+   		std::string temp="";
+   		while(std::getline(responseFile,temp)){
+   			fullPath+=temp;
+   		}
+   		responseFile.close();
    		usleep(2500);
    		if(fullPath.substr(0,strlen("GET /"))=="GET /"){ //GET 
 	        for(ssize_t i = fullPath.find("GET /") + strlen("GET /") ;fullPath[i]!=' ';i++){
@@ -293,22 +304,31 @@ void POSTMethod(int &new_sd,std::string addrcontainer){
 			}
 			GETMethod(new_sd,addrcontainer);
 		}
-		if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
+		else if(fullPath.substr(0,strlen("POST /"))=="POST /"){ //POST
 			 for(ssize_t i = fullPath.find("POST /") + strlen("POST /") ;fullPath[i]!=' ';i++){
 				addrcontainer+=fullPath[i]; //get the exact address
 			}
 			POSTMethod(new_sd,addrcontainer);
+		}
+		else if(fullPath.substr(0,strlen("PUT /"))=="PUT /" || fullPath.substr(0,strlen("HEAD /"))=="HEAD /"){
+			bytes_sent = write(new_sd,response_403,strlen(response_403));
+			if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
+		}
+		else{
+			bytes_sent = write(new_sd,response_400,strlen(response_400));
+			if(checkBytesError(bytes_sent)){std::cout<<"Error writing to client..!"<<std::endl; return;}
 		}
 }
 bool handle_request(int &cliefd) 
 {	
 	totalBytesRead = 0;
 	fullPath="";
-	int contentLength = 0;
+	contentLength = 0;
+	fileName = "";
+	fileExtension = "";
+	bool twoLines = false;
+	bool postCheck = false;
 	std::ofstream requestFile("request.txt",std::ios::out | std::ios::binary);
-	std::string fileName = "";
-	std::string fileExtension = "";
-	bool checkPost = false;
     do{
    		usleep(2500);
 			 bytes_recieved = recv(cliefd, incomming_data_buffer,buffersize, 0);
@@ -323,19 +343,15 @@ bool handle_request(int &cliefd)
 			    }
 			    else if(bytes_recieved>0){
 			    	totalBytesRead+=bytes_recieved;
+			    	if(strstr(incomming_data_buffer,"\r\n\r\n")!=NULL){
+			    		twoLines = true;
+			    	}
 					if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
 							std::cout<<incomming_data_buffer<<std::endl;
-					}					
-					if(strstr(incomming_data_buffer,"favicon.ico")==NULL){
-					    for(int i = 0;i<bytes_recieved;i++){
-					         requestFile<<incomming_data_buffer[i];
-					         fullPath+=incomming_data_buffer[i];
-				        }  
+							requestFile<<std::string (incomming_data_buffer);
 				    }
 				    if(strstr(incomming_data_buffer,"POST /")!=NULL){
-				    	checkPost = true;
-				    }
-				    if(strstr(incomming_data_buffer,"POST /")!=NULL){
+				    	postCheck = true;
 					    if(strstr(incomming_data_buffer,"Content-Length: ")!=NULL){
 					    	std::string temporary = std::string (incomming_data_buffer);
 					    	contentLength = atoi((temporary.substr(temporary.find("Content-Length: ")+strlen("Content-Length: "),temporary.find("Cache-Control: "))).c_str());
@@ -351,11 +367,13 @@ bool handle_request(int &cliefd)
 					    	fileExtension = tempExtension.substr(tempExtension.find("/"));
 					    }
 					}
-			    }		   	    
-	}while(strstr(incomming_data_buffer,"\r\n\r\n")==NULL || (checkPost && totalBytesRead<=contentLength));	
-	   
+			    }
+			    std::cout<<"Bytes recieved: "<<totalBytesRead<<" - "<<contentLength<<std::endl;	   	     
+	}while(!twoLines || (postCheck && totalBytesRead<contentLength));
+	std::cout<<"Bytes recieved: "<<totalBytesRead<<std::endl;	
+	std::cout<<"The server has read the request.."<<std::endl;
+		requestFile.close();
 	    staticFiles(cliefd);
-	    requestFile.close();
 	    return true;
 }
 
