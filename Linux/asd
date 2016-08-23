@@ -1,0 +1,8 @@
+cd download
+imgCont=$(ls *.jpeg)
+counter=1;
+for i in $imgCont; do convert $i -resize 20x20! -quality 95 $i; mv -v $i google_pic_$counter; counter=$((counter+1)); done; echo "DONE"; counter=1;
+moveItems=$(file * | grep -v 'JPEG image data')
+for i in $moveItems; do for j in *; do if echo $i | grep -q $j;then mv $j jpegFiles; fi ;done;done
+cd jpegFiles
+tar -zcvf archiveOfother.tar.gz *;
